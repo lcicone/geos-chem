@@ -2742,9 +2742,21 @@ CONTAINS
     thisLoc = ' -> at Config_Photolysis (in module GeosCore/input_mod.F90)'
 
     !------------------------------------------------------------------------
-    ! Directory with photolysis input files
+    ! Photolysis scheme and directories with photolysis input files
     !------------------------------------------------------------------------
-    key   = "operations%photolysis%input_dir"
+
+    ! Fast-JX
+    key    = "operations%photolysis%photolysis%use_fastjx"
+    v_bool = MISSING_BOOL
+    CALL QFYAML_Add_Get( Config, TRIM( key ), v_bool, "", RC )
+    IF ( RC /= GC_SUCCESS ) THEN
+       errMsg = 'Error parsing ' // TRIM( key ) // '!'
+       CALL GC_Error( errMsg, RC, thisLoc )
+       RETURN
+    ENDIF
+    Input_Opt%USE_FASTJX = v_bool
+
+    key   = "operations%photolysis%fastjx_input_dir"
     v_str = MISSING_STR
     CALL QFYAML_Add_Get( Config, TRIM( key ), v_str, "", RC )
     IF ( RC /= GC_SUCCESS ) THEN
@@ -2753,6 +2765,27 @@ CONTAINS
        RETURN
     ENDIF
     Input_Opt%FAST_JX_DIR = TRIM( v_str )
+
+    ! Cloud-J
+    key    = "operations%photolysis%photolysis%use_cloudj"
+    v_bool = MISSING_BOOL
+    CALL QFYAML_Add_Get( Config, TRIM( key ), v_bool, "", RC )
+    IF ( RC /= GC_SUCCESS ) THEN
+       errMsg = 'Error parsing ' // TRIM( key ) // '!'
+       CALL GC_Error( errMsg, RC, thisLoc )
+       RETURN
+    ENDIF
+    Input_Opt%USE_CloudJ = v_bool
+
+    key   = "operations%photolysis%cloudj_input_dir"
+    v_str = MISSING_STR
+    CALL QFYAML_Add_Get( Config, TRIM( key ), v_str, "", RC )
+    IF ( RC /= GC_SUCCESS ) THEN
+       errMsg = 'Error parsing ' // TRIM( key ) // '!'
+       CALL GC_Error( errMsg, RC, thisLoc )
+       RETURN
+    ENDIF
+    Input_Opt%CloudJ_DIR = TRIM( v_str )
 
     !------------------------------------------------------------------------
     ! Use online ozone in extinction calculations for FAST-JX?
@@ -2936,8 +2969,12 @@ CONTAINS
     IF ( Input_Opt%amIRoot ) THEN
        WRITE( 6,90  ) 'PHOTOLYSIS SETTINGS'
        WRITE( 6,95  ) '-------------------'
+       WRITE( 6,100 ) 'Use FAST-JX           : ', Input_Opt%Use_FastJX
        WRITE( 6,120 ) 'FAST-JX input directory     : ',                      &
                        TRIM( Input_Opt%FAST_JX_DIR )
+       WRITE( 6,100 ) 'Use Cloud-J           : ', Input_Opt%Use_CloudJ
+       WRITE( 6,120 ) 'Cloud-J input directory    : ',                       &
+                       TRIM( Input_Opt%CloudJ_Dir )
        WRITE( 6,100 ) 'Online ozone for FAST-JX?   : ', Input_Opt%USE_ONLINE_O3
        WRITE( 6,100 ) 'Ozone from met for FAST-JX? : ',                      &
                        Input_Opt%USE_O3_FROM_MET
