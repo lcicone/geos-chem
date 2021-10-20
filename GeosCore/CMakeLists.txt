@@ -127,5 +127,6 @@ target_link_libraries(GeosCore PUBLIC
   $<$<BOOL:${APM}>:APM>       # depends on APM iff APM is true
   $<$<BOOL:${RRTMG}>:GeosRad> # depends on GeosRad iff RRTMG is true
   $<$<BOOL:${GTMM}>:Hg>       # depends on Hg iff GTMM is true
+  $<$<BOOL:${CLOUDJ}>:CloudJ_Core> # depends on Cloud-J if Cloud-J is true
 
 )
