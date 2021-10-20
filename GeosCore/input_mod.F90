@@ -2963,6 +2963,8 @@ CONTAINS
     ! Return success
     RC = GC_SUCCESS
 
+  END SUBROUTINE READ_PHOTOLYSIS_MENU
+
     !========================================================================
     ! Print to screen
     !========================================================================
