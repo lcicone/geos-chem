@@ -79,7 +79,13 @@ CONTAINS
 !
 ! !USES:
 !
+#ifndef CLOUDJ
     USE CMN_FJX_MOD,        ONLY : Init_CMN_FJX
+#else
+    USE CMN_FJX_MOD,        ONLY : Init_CMN_FJX
+    !USE CldJ_Init_Mod,      ONLY : Init_FJX
+    ! I suspect init_fjx is not what we want here.
+#endif
     USE ErrCode_Mod
     USE Input_Opt_Mod
     USE State_Grid_Mod,     ONLY : GrdState

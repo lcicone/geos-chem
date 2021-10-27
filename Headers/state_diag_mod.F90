@@ -21,7 +21,11 @@ MODULE State_Diag_Mod
 !
 ! USES:
 !
+#ifndef CLOUDJ
   USE CMN_FJX_MOD,        ONLY : W_
+#else
+  USE CldJ_Cmn_Mod,       ONLY : W_
+#endif
   USE CMN_Size_Mod,       ONLY : NDUST
   USE DiagList_Mod
   USE Dictionary_M,       ONLY : dictionary_t

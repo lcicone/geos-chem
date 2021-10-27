@@ -19,6 +19,13 @@ MODULE CMN_FJX_MOD
 !
   USE CMN_SIZE_MOD, ONLY : NDUST, NAER
   USE PRECISION_MOD      ! For GEOS-Chem Precision (fp)
+#ifdef CLOUDJ
+  USE CldJ_Cmn_Mod, ONLY : L_, L1_, L2_, JVL_, JVN_, AN_, JXL_, JXL1_, JXL2_
+  USE CldJ_Cmn_Mod, ONLY : WX_, W_, X_, A_, N_, M_, M2_, EMU, WT, ZZHT, RAD
+  !USE CldJ_Cmn_Mod, ONLY : ATAU, ATAU0, WL, WBIN, FL, QRAYL
+  !USE CldJ_Cmn_Mod, ONLY : QO2, QO3, Q1D, LQQQ, TITLEJX, SQQ, QAA, WAA, SAA, NAA
+  !USE CldJ_Cmn_Mod, ONLY : NJX, NW1, NW2, JFACTA, HIND, NRATJ, JLABEL
+#endif
 
   IMPLICIT NONE
   PUBLIC
@@ -30,6 +37,7 @@ MODULE CMN_FJX_MOD
   INTEGER, PARAMETER :: IND999  = 5
 
   ! Required size of aerosol arrays
+#ifndef CLOUDJ
   INTEGER            :: L_             ! Number of CTM layers
 
   INTEGER            :: L1_            ! Number of CTM layer edges
@@ -43,6 +51,7 @@ MODULE CMN_FJX_MOD
 
   INTEGER            :: AN_            ! # of separate aerosols per layer
                                        ! Now set in Init_CMN_FJX below
+#endif
 
   ! Variables used to interface GEOS-Chem and Fast-JX at runtime
   ! Branches for photolysis species
@@ -64,6 +73,7 @@ MODULE CMN_FJX_MOD
   ! variables used to map fast-JX J's onto CTM J's
   !-----------------------------------------------------------------------
 
+#ifndef CLOUDJ
   ! Multiplication factor for fast-JX calculated J
   REAL(fp)             :: JFACTA(JVN_)
 
@@ -139,6 +149,7 @@ MODULE CMN_FJX_MOD
 
   ! ATAU0: minimum heating rate
   REAL(fp), PARAMETER  :: ATAU0  = 0.010e+0_fp
+#endif
 
   ! JTAUMX = maximum number of divisions (i.e., may not get to ATAUMN)
   INTEGER              :: JTAUMX
@@ -154,6 +165,7 @@ MODULE CMN_FJX_MOD
   ! Variables in file 'FJX_spec.dat' (RD_XXX)
   !-----------------------------------------------------------------------
 
+#ifndef CLOUDJ
   ! WBIN: Boundaries of wavelength bins
   REAL(fp)             :: WBIN(WX_+1)
 
@@ -166,17 +178,21 @@ MODULE CMN_FJX_MOD
   REAL(fp)             :: QO2(WX_,3)   ! QO2: O2 cross-sections
   REAL(fp)             :: QO3(WX_,3)   ! QO3: O3 cross-sections
   REAL(fp)             :: Q1D(WX_,3)   ! Q1D: O3 => O(1D) quantum yield
+#endif
 
   ! QQQ: Supplied cross sections in each wavelength bin (cm2)
   REAL(fp)             :: QQQ(WX_,3,X_)
 
+#ifndef CLOUDJ
   ! QRAYL: Rayleigh parameters (effective cross-section) (cm2)
   REAL(fp)             :: QRAYL(WX_+1)
+#endif
 
   ! TQQ: Temperature for supplied cross sections
   REAL(fp)             :: TQQ(3,X_)
 
-  ! LQQ = 1, 2, or 3 to determine interpolation with T or P
+#ifndef CLOUDJ
+  ! LQQQ = 1, 2, or 3 to determine interpolation with T or P
   INTEGER              :: LQQ(X_)
 
   ! TITLEJX: Title for supplied cross sections, from 'FJX_spec.dat'
@@ -197,15 +213,19 @@ MODULE CMN_FJX_MOD
 
   ! PAA: Phase function: first 8 terms of expansion
   REAL(fp)             :: PAA(8,5,A_)
+#endif
 
+! RAA is in Cloud-J but with different dimensions. Use this in fast-jx for now.
   ! RAA: Effective radius associated with aerosol type
   REAL(fp)             :: RAA(5,A_)
 
+#ifndef CLOUDJ
   ! SAA: Single scattering albedo
   REAL(fp)             :: SAA(5,A_)
 
   ! NAA: Number of categories for scattering phase functions
   INTEGER              :: NAA
+#endif
 
   !-----------------------------------------------------------------------
   ! Variables in file 'jv_spec_aod.dat' (RD_AOD)
@@ -244,7 +264,9 @@ MODULE CMN_FJX_MOD
   REAL(fp), ALLOCATABLE :: ODAER(:,:,:,:,:)
   REAL(fp), ALLOCATABLE :: ISOPOD(:,:,:,:)   ! eam, 2014
 
+#ifndef CLOUDJ
   INTEGER NJX,NW1,NW2
+#endif
 
   !-----------------------------------------------------------------------
   !  Variables added for RRTMG (dar, mps, 12/5/14)
@@ -348,6 +370,7 @@ CONTAINS
     ! INIT_CMN_FJX begins here!
     !=================================================================
 
+#ifndef CLOUDJ
     L_     = State_Grid%NZ ! Number of CTM layers
     L1_    = L_+1          ! Number of CTM layer edges
     L2_    = L1_*2         ! Number of levels in FJX grid that
@@ -366,12 +389,14 @@ CONTAINS
        N_ = 601
     ENDIF
 #endif
+#endif
 
     JTAUMX = ( N_ - 4*JXL_ ) / 2  ! Maximum number of divisions ( i.e., may
                                   ! not get to ATAUMN)
-
+#ifndef CLOUDJ
     AN_       = 37  ! # of separate aerosols per layer; Including PSCs
     W_        = 18  ! # of wavelength bins
+#endif
 
     ! For RRTMG:
     NSPAA     = 8   ! number of species in LUT

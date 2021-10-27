@@ -173,7 +173,14 @@ CONTAINS
 !
 ! !USES:
 !
+#ifndef CLOUDJ
     USE CMN_FJX_MOD,      ONLY : REAA
+#else
+    ! REAA is not defined in Cloud-J!
+    ! REAA is a new optical array in GEOS-Chem CMN_FJX_mod file.
+    ! Could add to State_chm...?
+    USE CMN_FJX_MOD,      ONLY : REAA
+#endif
     USE ErrCode_Mod
     USE ERROR_MOD
 #if !defined( MODEL_CESM )
@@ -1050,7 +1057,18 @@ CONTAINS
 ! !USES:
 !
     USE CMN_SIZE_Mod,   ONLY : NRH, NRHAER, NSTRATAER
-    USE CMN_FJX_MOD
+#ifndef CLOUDJ
+    USE CMN_FJX_MOD, ONLY : IRHARR, ODAER, NWVAA, NWVAA0, NWVREQUIRED
+    USE CMN_FJX_MOD, ONLY : IWV1000, REAA, QQAA, ALPHAA, SSAA
+    USE CMN_FJX_MOD, ONLY : ASYMAA, ISOPOD, NDUST, IWVSELECT
+    USE CMN_FJX_MOD, ONLY : ACOEF_WV, BCOEF_WV, NAER, IWVREQUIRED
+#else
+    ! These variables not in Cloud-J!
+    USE CMN_FJX_MOD, ONLY : IRHARR, ODAER, NWVAA, NWVAA0, NWVREQUIRED
+    USE CMN_FJX_MOD, ONLY : IWV1000, REAA, QQAA, ALPHAA, SSAA
+    USE CMN_FJX_MOD, ONLY : ASYMAA, ISOPOD, NDUST, IWVSELECT
+    USE CMN_FJX_MOD, ONLY : ACOEF_WV, BCOEF_WV, NAER, IWVREQUIRED
+#endif
     USE ErrCode_Mod
     USE ERROR_MOD,      ONLY : ERROR_STOP, Safe_Div
     USE Input_Opt_Mod,  ONLY : OptInput

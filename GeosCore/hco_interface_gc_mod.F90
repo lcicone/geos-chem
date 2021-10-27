@@ -2913,7 +2913,12 @@ CONTAINS
 !
 ! !USES:
 !
+#ifndef CLOUDJ
     USE CMN_FJX_MOD,          ONLY : ZPJ
+#else
+    ! ZPJ not in Cloud-J!
+    USE CMN_FJX_MOD,          ONLY : ZPJ
+#endif
     USE ErrCode_Mod
     USE FAST_JX_MOD,          ONLY : RXN_NO2, RXN_O3_1
     USE HCO_GeoTools_Mod,     ONLY : HCO_GetSUNCOS

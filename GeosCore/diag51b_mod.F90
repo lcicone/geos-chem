@@ -324,8 +324,15 @@ CONTAINS
     USE State_Chm_Mod,      ONLY : Ind_
     USE State_Grid_Mod,     ONLY : GrdState
     USE State_Met_Mod,      ONLY : MetState
+#ifndef CLOUDJ
     USE CMN_FJX_MOD,        ONLY : ODAER, ODMDUST
     USE CMN_FJX_MOD,        ONLY : IWVSELECT, ACOEF_WV, BCOEF_WV
+#else
+    ! These are not in Cloud-J!
+    ! Put in State_Chm?
+    USE CMN_FJX_MOD,        ONLY : ODAER, ODMDUST
+    USE CMN_FJX_MOD,        ONLY : IWVSELECT, ACOEF_WV, BCOEF_WV
+#endif
     USE CMN_O3_MOD,         ONLY : SAVEOA
     USE CMN_SIZE_MOD,       ONLY : NRH, NDUST
     USE PhysConstants            ! SCALE_HEIGHT, XNUMOLAIR

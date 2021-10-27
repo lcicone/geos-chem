@@ -1197,7 +1197,18 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FJX_MOD
+#ifndef CLOUDJ
+    USE CMN_FJX_MOD,        ONLY : NWVAART, NWVREQUIRED, QQAA, RDAA
+    USE CMN_FJX_MOD,        ONLY : IWV1000, NWVAA0, ODMDUST, IWVSELECT
+    USE CMN_FJX_MOD,        ONLY : ACOEF_WV, BCOEF_WV
+    USE CMN_FJX_MOD,        ONLY : IWVREQUIRED, NDUST
+#else
+    ! These are not in Cloud-J!
+    USE CMN_FJX_MOD,        ONLY : NWVAART, NWVREQUIRED, QQAA, RDAA
+    USE CMN_FJX_MOD,        ONLY : IWV1000, NWVAA0, ODMDUST, IWVSELECT
+    USE CMN_FJX_MOD,        ONLY : ACOEF_WV, BCOEF_WV
+    USE CMN_FJX_MOD,        ONLY : IWVREQUIRED, NDUST
+#endif
     USE ErrCode_Mod
     USE Input_Opt_Mod,      ONLY : OptInput
     USE State_Chm_Mod,      ONLY : ChmState

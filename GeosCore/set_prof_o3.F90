@@ -23,7 +23,13 @@ SUBROUTINE SET_PROF_O3( YLAT,     MONTH,   DAY,      T_CTM,     &
 !
 ! !USES:
 !
-  USE CMN_FJX_MOD
+#ifndef CLOUDJ
+  USE CMN_FJX_MOD,  ONLY : OREF, TREF, Z_CLIM, L_, L1_, ZZHT
+#else
+  USE CMN_FJX_MOD,  ONLY : OREF, TREF, Z_CLIM, ZZHT
+  USE CldJ_Cmn_Mod, ONLY : L_, L1_
+  ! The rest not in Cloud-J!
+#endif
   USE Input_Opt_Mod,      ONLY : OptInput
   USE PhysConstants            ! Physical constants
   USE PRECISION_MOD            ! For GEOS-Chem Precision (fp)

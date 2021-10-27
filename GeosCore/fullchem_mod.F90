@@ -91,7 +91,13 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FJX_MOD
+#ifndef CLOUDJ
+    USE CMN_FJX_MOD,        ONLY : JVN_, ZPJ, GC_PHOTO_ID
+#else
+    USE CldJ_Cmn_Mod,       ONLY : JVN_
+    USE CMN_FJX_MOD,        ONLY : ZPJ, GC_PHOTO_ID
+    ! JVN_ in Cloud-J but others are not
+#endif
     USE ErrCode_Mod
     USE ERROR_MOD
     USE FAST_JX_MOD,              ONLY : PHOTRATE_ADJ, FAST_JX

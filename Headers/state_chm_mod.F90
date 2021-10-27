@@ -2128,7 +2128,11 @@ CONTAINS
 !
     USE GCKPP_Parameters, ONLY : NSPEC
     USE Input_Opt_Mod,    ONLY : OptInput
+#ifndef CLOUDJ
     USE Cmn_Fjx_Mod,      ONLY : W_
+#else
+    USE CldJ_Cmn_Mod,     ONLY : W_
+#endif
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !

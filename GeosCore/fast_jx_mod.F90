@@ -16,7 +16,20 @@ MODULE FAST_JX_MOD
 !
 ! !USES:
 !
+#ifndef CLOUDJ
   USE CMN_FJX_MOD
+#else
+  USE CMN_FJX_MOD
+  ! Need to explicitly list what to use from cldj_cmn_mod due to param 'fp' in file
+  ! Avoid this in future by changing that var name in cloud-j.
+  ! We might not use all of the params in this list. Need to trim what's not used.
+  USE CldJ_Cmn_Mod, ONLY : L_, L1_, L2_, JVL_, JVN_, AN_, JXL_, JXL1_, JXL2_
+  USE CldJ_Cmn_Mod, ONLY : WX_, W_, X_, A_, N_, M_, M2_, EMU, WT
+  USE Cldj_Cmn_Mod, ONLY : ZZHT, RAD, ATAU, ATAU0, WL, WBIN, FL, QRAYL
+  USE Cldj_Cmn_Mod, ONLY : QO2, QO3, Q1D, LQQ, TITLEJX, SQQ
+  USE Cldj_Cmn_Mod, ONLY : QAA, WAA, PAA, SAA, NAA
+  USE Cldj_Cmn_Mod, ONLY : NJX, NW1, NW2, JFACTA, JIND, NRATJ, JLABEL
+#endif
   USE PRECISION_MOD    ! For GEOS-Chem Precision (fp)
 #if defined( MODEL_CESM ) && defined( SPMD )
       USE MPISHORTHAND
@@ -1705,6 +1718,15 @@ CONTAINS
     notDryRun   = ( .not. Input_Opt%DryRun )
     ErrMsg      = ''
     ThisLoc     = ' -> at Init_FJX (in module GeosCore/fast_jx_mod.F90)'
+
+#ifdef CLOUDJ
+    ! For now, if using cloud-j we are still using this init function
+    ! Overwrite certain values from Cloud-J for consistency with GEOS-Chem
+    ZZHT  = 5.e+5_fp
+    RAD   = 6375.e+5_fp
+    ATAU  = 1.120e+0_fp
+    ATAU0 = 0.010e+0_fp
+#endif
 
     ! Skip these opterations when running in dry-run mode
     IF ( notDryRun ) THEN
