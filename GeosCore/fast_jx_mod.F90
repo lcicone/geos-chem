@@ -19,6 +19,8 @@ MODULE FAST_JX_MOD
 #ifndef CLOUDJ
   USE CMN_FJX_MOD
 #else
+  USE CLDJ_ERROR_MOD, ONLY : CLOUDJ_ERROR_STOP
+  USE FJX_SUB_MOD,    ONLY : EXITC, LEGND0, GEN_ID, X_INTERP
   USE CMN_FJX_MOD
   ! Need to explicitly list what to use from cldj_cmn_mod due to param 'fp' in file
   ! Avoid this in future by changing that var name in cloud-j.
@@ -42,7 +44,9 @@ MODULE FAST_JX_MOD
 !
 ! !PUBLIC MEMBER FUNCTIONS:
 !
+#ifndef CLOUDJ
   PUBLIC  :: EXITC
+#endif
   PUBLIC  :: PHOTO_JX
   PUBLIC  :: INIT_FJX
   PUBLIC  :: FAST_JX
@@ -53,11 +57,13 @@ MODULE FAST_JX_MOD
   PRIVATE :: SOLAR_JX
   PRIVATE :: OPMIE
   PRIVATE :: MIESCT
+#ifndef CLOUDJ
   PRIVATE :: LEGND0
-  PRIVATE :: BLKSLV
   PRIVATE :: GEN_ID
-  PRIVATE :: JRATET
   PRIVATE :: X_INTERP
+#endif
+  PRIVATE :: BLKSLV
+  PRIVATE :: JRATET
   PRIVATE :: SPHERE2
   PRIVATE :: EXTRAL
   PRIVATE :: RD_PROF_NC
@@ -842,6 +848,7 @@ CONTAINS
 
   END SUBROUTINE BLKSLV
 !EOC
+#ifndef CLOUDJ
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -1090,6 +1097,7 @@ CONTAINS
 
   END SUBROUTINE GEN_ID
 !EOC
+#endif
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -1213,6 +1221,7 @@ CONTAINS
 
   END SUBROUTINE JRATET
 !EOC
+#ifndef CLOUDJ
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -1274,6 +1283,7 @@ CONTAINS
 
   END SUBROUTINE X_INTERP
 !EOC
+#endif
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -1615,6 +1625,7 @@ CONTAINS
 
   END SUBROUTINE EXTRAL
 !EOC
+#ifndef CLOUDJ
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -1650,6 +1661,7 @@ CONTAINS
 
   END SUBROUTINE EXITC
 !EOC
+#endif
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -4613,6 +4625,7 @@ CONTAINS
 
   END SUBROUTINE MIESCT
 !EOC
+#ifndef CLOUDJ
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -4667,6 +4680,7 @@ CONTAINS
 
   END SUBROUTINE LEGND0
 !EOC
+#endif
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
