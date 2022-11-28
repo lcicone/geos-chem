@@ -611,7 +611,12 @@ CONTAINS
     USE Depo_Mercury_Mod,   ONLY : ADD_Hg2_DD
     USE Depo_Mercury_Mod,   ONLY : ADD_HgP_DD
     USE FAST_JX_MOD,        ONLY : FAST_JX
-    USE CMN_FJX_MOD
+#ifdef CLOUDJ
+    USE Cldj_CMN_Mod,       ONLY : nRatJ
+    USE CMN_FJX_MOD,        ONLY : ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
+#else
+    USE CMN_FJX_MOD,        ONLY : nRatJ, ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
+#endif
     USE GcKpp_Monitor,      ONLY : SPC_NAMES, FAM_NAMES
     USE GcKpp_Parameters
     USE GcKpp_Integrator,   ONLY : Integrate
@@ -3444,7 +3449,12 @@ CONTAINS
 !
 ! !USES:
 !
-    USE Cmn_FJX_Mod
+#ifdef CLOUDJ
+    USE Cldj_CMN_Mod,       ONLY : nRatJ
+    USE CMN_FJX_MOD,        ONLY : GC_Photo_Id
+#else
+    USE CMN_FJX_MOD,        ONLY : nRatJ, GC_Photo_Id
+#endif
     USE Cmn_Size_Mod,     ONLY : nAer, nDust
     USE ErrCode_Mod
     USE Fast_JX_Mod,      ONLY : Init_FJX

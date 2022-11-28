@@ -21,11 +21,6 @@ MODULE State_Diag_Mod
 !
 ! USES:
 !
-#ifndef CLOUDJ
-  USE CMN_FJX_MOD,        ONLY : W_
-#else
-  USE CldJ_Cmn_Mod,       ONLY : W_
-#endif
   USE CMN_Size_Mod,       ONLY : NDUST
   USE DiagList_Mod
   USE Dictionary_M,       ONLY : dictionary_t
@@ -12356,6 +12351,11 @@ CONTAINS
 ! !USES:
 !
     USE ErrCode_Mod
+#ifdef CLOUDJ
+    USE CldJ_Cmn_Mod,       ONLY : W_
+#else
+    USE CMN_FJX_MOD,        ONLY : W_
+#endif
     USE State_Chm_Mod, ONLY : ChmState
 !
 ! !INPUT PARAMETERS:
