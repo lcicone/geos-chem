@@ -2746,7 +2746,7 @@ CONTAINS
     !------------------------------------------------------------------------
 
     ! Fast-JX
-    key    = "operations%photolysis%photolysis%use_fastjx"
+    key    = "operations%photolysis%method%use_fastjx"
     v_bool = MISSING_BOOL
     CALL QFYAML_Add_Get( Config, TRIM( key ), v_bool, "", RC )
     IF ( RC /= GC_SUCCESS ) THEN
@@ -2756,7 +2756,7 @@ CONTAINS
     ENDIF
     Input_Opt%USE_FASTJX = v_bool
 
-    key   = "operations%photolysis%fastjx_input_dir"
+    key   = "operations%photolysis%input_directories%fastjx_input_dir"
     v_str = MISSING_STR
     CALL QFYAML_Add_Get( Config, TRIM( key ), v_str, "", RC )
     IF ( RC /= GC_SUCCESS ) THEN
@@ -2767,7 +2767,7 @@ CONTAINS
     Input_Opt%FAST_JX_DIR = TRIM( v_str )
 
     ! Cloud-J
-    key    = "operations%photolysis%photolysis%use_cloudj"
+    key    = "operations%photolysis%method%use_cloudj"
     v_bool = MISSING_BOOL
     CALL QFYAML_Add_Get( Config, TRIM( key ), v_bool, "", RC )
     IF ( RC /= GC_SUCCESS ) THEN
@@ -2777,7 +2777,7 @@ CONTAINS
     ENDIF
     Input_Opt%USE_CloudJ = v_bool
 
-    key   = "operations%photolysis%cloudj_input_dir"
+    key   = "operations%photolysis%input_directories%cloudj_input_dir"
     v_str = MISSING_STR
     CALL QFYAML_Add_Get( Config, TRIM( key ), v_str, "", RC )
     IF ( RC /= GC_SUCCESS ) THEN
@@ -2962,8 +2962,6 @@ CONTAINS
 
     ! Return success
     RC = GC_SUCCESS
-
-  END SUBROUTINE READ_PHOTOLYSIS_MENU
 
     !========================================================================
     ! Print to screen

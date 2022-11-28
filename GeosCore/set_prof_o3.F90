@@ -24,9 +24,9 @@ SUBROUTINE SET_PROF_O3( YLAT,     MONTH,   DAY,      T_CTM,     &
 ! !USES:
 !
 #ifndef CLOUDJ
-  USE CMN_FJX_MOD,  ONLY : OREF, TREF, Z_CLIM, L_, L1_, ZZHT
+  USE CMN_FJX_MOD,  ONLY : OREF, TREF, L_, L1_, ZZHT
 #else
-  USE CMN_FJX_MOD,  ONLY : OREF, TREF, Z_CLIM, ZZHT
+  USE CMN_FJX_MOD,  ONLY : OREF, TREF, ZZHT
   USE CldJ_Cmn_Mod, ONLY : L_, L1_
   ! The rest not in Cloud-J!
 #endif
