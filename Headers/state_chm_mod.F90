@@ -23,6 +23,7 @@ MODULE State_Chm_Mod
 !
   USE Dictionary_M, ONLY : dictionary_t  ! Fortran hash table type
   USE ErrCode_Mod                        ! Error handling
+  USE Photol_Obj_Mod                     ! For photolysis state object
   USE PhysConstants                      ! Physical constants
   USE Precision_Mod                      ! GEOS-Chem precision types
   USE Registry_Mod                       ! Registry module
@@ -219,6 +220,12 @@ MODULE State_Chm_Mod
      REAL(fp),          POINTER :: fupdateHOCl(:,:,:  ) ! Correction factor for
                                                         ! HOCl removal by SO2
                                                         ! [unitless]
+
+     !-----------------------------------------------------------------------
+     ! Fields for photolysis
+     !-----------------------------------------------------------------------
+     TYPE(PhotolState), POINTER :: photol               ! Photolysis state obj
+
      !-----------------------------------------------------------------------
      ! Fields for dry deposition
      !-----------------------------------------------------------------------
@@ -400,6 +407,9 @@ CONTAINS
     State_Chm%SpeciesAdj    => NULL()
     State_Chm%CostFuncMask  => NULL()
 #endif
+
+    ! Photolysis state
+    State_Chm%Photol            => NULL()
 
     ! RRTMG state
     State_Chm%RRTMG_iSeed       = 0
@@ -645,6 +655,19 @@ CONTAINS
     ENDDO
 
     !========================================================================
+    ! Allocate and initialize the photolysis object if doing photolysis
+    !========================================================================
+    IF ( Input_Opt%Use_FastJX .OR. Input_Opt%Use_CloudJ ) THEN
+       ALLOCATE( State_Chm%Photol, STAT=RC )
+       CALL Init_Photol_Obj( Input_Opt, State_Chm%Photol, RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error encountered in "Init_Photol_State" routine!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+    ENDIF
+
+    !========================================================================
     ! Determine the number of advected, drydep, wetdep, and total species
     !========================================================================
 
@@ -758,7 +781,6 @@ CONTAINS
        CALL GC_Error( errMsg, RC, thisLoc )
        RETURN
     ENDIF
-
 
     !========================================================================
     ! Allocate and initialize chemical species fields
@@ -3311,6 +3333,12 @@ CONTAINS
        CALL GC_CheckVar( 'State_Chm%TOMS2', 2, RC )
        IF ( RC /= GC_SUCCESS ) RETURN
        State_Chm%TOMS2 => NULL()
+    ENDIF
+
+    ! ewl: need to work on this
+    IF ( ASSOCIATED ( State_Chm%Photol ) ) THEN
+       CALL Cleanup_Photol_Obj(State_Chm%Photol, RC )
+       State_Chm%Photol => NULL()
     ENDIF
 
     !-----------------------------------------------------------------------
