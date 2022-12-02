@@ -659,7 +659,7 @@ CONTAINS
     !========================================================================
     IF ( Input_Opt%Use_FastJX .OR. Input_Opt%Use_CloudJ ) THEN
        ALLOCATE( State_Chm%Photol, STAT=RC )
-       CALL Init_Photol_Obj( Input_Opt, State_Chm%Photol, RC )
+       CALL Init_Photol_Obj( Input_Opt, State_Grid, State_Chm%Photol, RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error encountered in "Init_Photol_State" routine!'
           CALL GC_Error( errMsg, RC, thisLoc )
