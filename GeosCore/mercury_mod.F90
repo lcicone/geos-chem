@@ -610,7 +610,7 @@ CONTAINS
 !
     USE Depo_Mercury_Mod,   ONLY : ADD_Hg2_DD
     USE Depo_Mercury_Mod,   ONLY : ADD_HgP_DD
-    USE FAST_JX_MOD,        ONLY : FAST_JX
+    USE FJX_Interface_Mod,  ONLY : FAST_JX
 #ifdef CLOUDJ
     USE Cldj_CMN_Mod,       ONLY : nRatJ
     USE CMN_FJX_MOD,        ONLY : ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
@@ -3455,17 +3455,17 @@ CONTAINS
 #else
     USE CMN_FJX_MOD,        ONLY : nRatJ, GC_Photo_Id
 #endif
-    USE Cmn_Size_Mod,     ONLY : nAer, nDust
+    USE Cmn_Size_Mod,       ONLY : nAer, nDust
     USE ErrCode_Mod
-    USE Fast_JX_Mod,      ONLY : Init_FJX
-    USE GcKpp_Monitor,    ONLY : Eqn_Names, Fam_Names
-    USE GcKpp_Parameters, ONLY : nFam, nReact
-    USE Input_Opt_Mod,    ONLY : OptInput
-    USE Species_Mod,      ONLY : Species
-    USE State_Chm_Mod,    ONLY : Ind_
-    USE State_Chm_Mod,    ONLY : ChmState
-    USE State_Diag_Mod,   ONLY : DgnState
-    USE State_Grid_Mod,   ONLY : GrdState
+    USE FJX_Interface_Mod,  ONLY : Init_FJX
+    USE GcKpp_Monitor,      ONLY : Eqn_Names, Fam_Names
+    USE GcKpp_Parameters,   ONLY : nFam, nReact
+    USE Input_Opt_Mod,      ONLY : OptInput
+    USE Species_Mod,        ONLY : Species
+    USE State_Chm_Mod,      ONLY : Ind_
+    USE State_Chm_Mod,      ONLY : ChmState
+    USE State_Diag_Mod,     ONLY : DgnState
+    USE State_Grid_Mod,     ONLY : GrdState
 !
 ! !INPUT PARAMETERS:
 !

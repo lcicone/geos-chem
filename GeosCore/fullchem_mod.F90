@@ -100,8 +100,7 @@ CONTAINS
 #endif
     USE ErrCode_Mod
     USE ERROR_MOD
-    USE FAST_JX_MOD,              ONLY : PHOTRATE_ADJ, FAST_JX
-    USE FAST_JX_MOD,              ONLY : RXN_O3_1, RXN_NO2
+    USE FJX_Interface_Mod,        ONLY : PHOTRATE_ADJ, FAST_JX
     USE fullchem_HetStateFuncs,   ONLY : fullchem_SetStateHet
     USE fullchem_SulfurChemFuncs, ONLY : fullchem_ConvertAlkToEquiv
     USE fullchem_SulfurChemFuncs, ONLY : fullchem_ConvertEquivToAlk
@@ -584,8 +583,8 @@ CONTAINS
           ! (1) H2SO4 + hv -> SO2 + OH + OH   (UCX-based mechanisms)
           ! (2) O3    + hv -> O2  + O         (UCX-based mechanisms)
           ! (2) O3    + hv -> OH  + OH        (trop-only mechanisms)
-          CALL PHOTRATE_ADJ( Input_Opt, State_Diag, State_Met, I,            &
-                             J,         L,          SO4_FRAC,  IERR         )
+          CALL PHOTRATE_ADJ( Input_Opt, State_Chm, State_Diag, State_Met,    &
+                             I, J, L,   SO4_FRAC,  IERR                     )
 
           ! Loop over the FAST-JX photolysis species
           DO N = 1, JVN_
@@ -1552,11 +1551,11 @@ CONTAINS
 
     ! Set State_Chm arrays for surface J-values used in HEMCO and
     ! saved to restart file
-    IF ( RXN_O3_1 >= 0 ) THEN
-       State_Chm%JOH(:,:) = ZPJ(1,RXN_O3_1,:,:)
+    IF ( State_Chm%Photol%RXN_O3_1 >= 0 ) THEN
+       State_Chm%JOH(:,:) = ZPJ(1,State_Chm%Photol%RXN_O3_1,:,:)
     ENDIF
-    IF ( RXN_NO2 >= 0 ) THEN
-       State_Chm%JNO2(:,:) = ZPJ(1,RXN_NO2,:,:)
+    IF ( State_Chm%Photol%RXN_NO2 >= 0 ) THEN
+       State_Chm%JNO2(:,:) = ZPJ(1,State_Chm%Photol%RXN_NO2,:,:)
     ENDIF
 
     ! Set FIRSTCHEM = .FALSE. -- we have gone thru one chem step

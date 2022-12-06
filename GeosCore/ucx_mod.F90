@@ -243,7 +243,6 @@ CONTAINS
     ! ZPJ not in Cloud-J! See comment elsewhere on this in this file.
     USE CMN_FJX_MOD,        ONLY : ZPJ
 #endif
-    USE FAST_JX_MOD,        ONLY : RXN_NO, RXN_NO2, RXN_NO3, RXN_N2O
 !
 ! !INPUT PARAMETERS:
 !
@@ -482,13 +481,13 @@ CONTAINS
           RRATE(1)  = 5.1e-12_fp*exp(210.e+0_fp*TINV)
           ! 4:  NO2 + hv -> NO + O1D
           !RRATE(k_JNO2) = NOX_J(I,J,L,JNO2IDX)*DAYFRAC
-          RRATE(k_JNO2) = ZPJ(LMINPHOT,RXN_NO2,I,J)
+          RRATE(k_JNO2) = ZPJ(LMINPHOT,State_Chm%Photol%RXN_NO2,I,J)
           ! 5:  NO3 + hv -> NO2 + O
           !RRATE(k_JNO3) = NOX_J(I,J,L,JNO3IDX)*DAYFRAC
-          RRATE(k_JNO3) = ZPJ(LMINPHOT,RXN_NO3,I,J)
+          RRATE(k_JNO3) = ZPJ(LMINPHOT,State_Chm%Photol%RXN_NO3,I,J)
           ! 6:  NO + hv -> N + O
           !RRATE(k_JNO ) = NOX_J(I,J,L,JNOIDX)*DAYFRAC
-          RRATE(k_JNO) = ZPJ(LMINPHOT,RXN_NO,I,J)
+          RRATE(k_JNO) = ZPJ(LMINPHOT,State_Chm%Photol%RXN_NO,I,J)
           ! 7:  N + NO2 -> N2O + O
           RRATE(7)  = 5.8e-12_fp*exp(220.e+0_fp*TINV)
           ! 8:  N + NO -> N2 + O
@@ -501,7 +500,7 @@ CONTAINS
           RRATE(11) = 7.25e-11_fp*exp(20.e+0_fp*TINV)
           ! 12:  N2O + hv -> N2 + O1D
           !RRATE(k_JN2O) = NOX_J(I,J,L,JN2OIDX)*DAYFRAC
-          RRATE(k_JN2O) = ZPJ(LMINPHOT,RXN_N2O,I,J)
+          RRATE(k_JN2O) = ZPJ(LMINPHOT,State_Chm%Photol%RXN_N2O,I,J)
 
           ! Sanity check
           Where(RRate.lt.0.0e+0_fp) RRate = 0.0e+0_fp
@@ -3895,7 +3894,6 @@ CONTAINS
     ! Need to figure out if new name, needs to be added, or put in state_chm
     USE CMN_FJX_MOD,        ONLY : ZPJ
 #endif
-    USE FAST_JX_MOD,        ONLY : RXN_H2SO4
     USE Input_Opt_Mod,      ONLY : OptInput
     USE Species_Mod,        ONLY : SpcConc
     USE State_Chm_Mod,      ONLY : ChmState
@@ -3963,7 +3961,7 @@ CONTAINS
           LMINPHOT  = State_Met%ChemGridLev(I,J)
 
           ! Retrieve photolysis rate as a fraction of gaseous SO4
-          PHOTDELTA = ZPJ(LMINPHOT,RXN_H2SO4,I,J) * DTCHEM
+          PHOTDELTA = ZPJ(LMINPHOT,State_Chm%Photol%RXN_H2SO4,I,J) * DTCHEM
           PHOTDELTA = MIN(1.e+0_fp,PHOTDELTA)
 
           DO L=LMINPHOT+1,State_Grid%NZ

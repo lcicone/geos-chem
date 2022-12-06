@@ -3,77 +3,51 @@
 !------------------------------------------------------------------------------
 !BOP
 !
-! !MODULE: fjx_interface_gc_mod.F90
+! !MODULE: fjx_interface_mod.F90
 !
-! !DESCRIPTION:
+! !DESCRIPTION: Module FJX\_INTERFACE\_MOD contains routines and variables
+!  for interfacing with the Fast-JX scheme (Prather et al) that calculates
+!  photolysis rates. Current implementation is version 7.0a.
 !\\
 !\\
 ! !INTERFACE:
 !
-MODULE FJX_INTERFACE_GC_MOD
+MODULE FJX_INTERFACE_MOD
 !
 ! !USES:
 !
   USE CMN_FJX_MOD
-  USE FAST_JX_MOD
+  USE FJX_Mod          ! ewl new
   USE PRECISION_MOD    ! For GEOS-Chem Precision (fp)
 #if defined( MODEL_CESM ) && defined( SPMD )
-  USE MPISHORTHAND
-  USE SPMD_UTILS
+      USE MPISHORTHAND
+      USE SPMD_UTILS
 #endif
 
   IMPLICIT NONE
 
   PRIVATE
-
 !
 ! !PUBLIC MEMBER FUNCTIONS:
 !
   PUBLIC  :: INIT_FJX
   PUBLIC  :: FAST_JX
   PUBLIC  :: PHOTRATE_ADJ
-  PUBLIC  :: GC_EXITC ! not used... move exitc back???
-  PUBLIC  :: CALC_AOD
+!
+! !PRIVATE MEMBER FUNCTIONS:
+!
+  PRIVATE :: GC_EXITC ! ewl new
+  PRIVATE :: RD_PROF_NC
+  PRIVATE :: CALC_AOD
 !
 ! !REVISION HISTORY:
 !  See https://github.com/geoschem/geos-chem for complete history
 !EOP
 !------------------------------------------------------------------------------
 !BOC
-  ! Flags for certain photo-reactions that will be adjusted by
-  ! subroutine PHOTRATE_ADJ, which is called by FlexChem (bmy 3/29/16)
-  INTEGER, PUBLIC :: RXN_O2    = -1   ! O2  + jv --> O   + O
-  INTEGER, PUBLIC :: RXN_O3_1  = -1   ! O3  + hv --> O2  + O
-  INTEGER, PUBLIC :: RXN_O3_2  = -1   ! O3  + hv --> O2  + O(1D)
-  INTEGER, PUBLIC :: RXN_H2SO4 = -1   ! SO4 + hv --> SO2 + 2OH
-  INTEGER, PUBLIC :: RXN_NO2   = -1   ! NO2 + hv --> NO  + O
-
-  INTEGER, PUBLIC :: RXN_JHNO3  = -1   ! HNO3 + hv --> OH + NO2
-  INTEGER, PUBLIC :: RXN_JNITSa = -1   ! NITs  + hv --> HNO2
-  INTEGER, PUBLIC :: RXN_JNITSb = -1   ! NITs  + hv --> NO2
-  INTEGER, PUBLIC :: RXN_JNITa  = -1   ! NIT + hv --> HNO2
-  INTEGER, PUBLIC :: RXN_JNITb  = -1   ! NIT + hv --> NO2
-
-  ! Needed for UCX_MOD
-  INTEGER, PUBLIC :: RXN_NO    = -1
-  INTEGER, PUBLIC :: RXN_NO3   = -1
-  INTEGER, PUBLIC :: RXN_N2O   = -1
-
-  ! For Hg chem
-  INTEGER, PUBLIC :: RXN_BrO   = -1
-  INTEGER, PUBLIC :: RXN_ClO   = -1
-
-  ! Species ID flags
-  INTEGER :: id_CH2IBr, id_IBr,  id_CH2ICl, id_ICl,   id_I2
-  INTEGER :: id_HOI,    id_IO,   id_OIO,    id_INO,   id_IONO
-  INTEGER :: id_IONO2,  id_I2O2, id_CH3I,   id_CH2I2, id_I2O4
-  INTEGER :: id_I2O3
-
-  ! Needed for scaling JNIT/JNITs photolysis to JHNO3
-  REAL(fp)      :: JscaleNITs, JscaleNIT, JNITChanA, JNITChanB
 
 CONTAINS
-
+!EOC
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -90,9 +64,11 @@ CONTAINS
 !
 ! !USES:
 !
+    USE Charpak_Mod,    ONLY : CSTRIP
     USE ErrCode_Mod
     USE Input_Opt_Mod,  ONLY : OptInput
     USE inquireMod,     ONLY : findFreeLUN
+    USE PhysConstants,  ONLY : UVXPlanck, UVXCConst
     USE State_Chm_Mod,  ONLY : ChmState
     USE State_Chm_Mod,  ONLY : Ind_
     USE State_Diag_Mod, ONLY : DgnState
@@ -123,17 +99,19 @@ CONTAINS
 ! !LOCAL VARIABLES:
 !
     ! Scalars
-    LOGICAL            :: amIRoot
-    LOGICAL            :: notDryRun, dryRun
-    LOGICAL            :: is_fullchem, is_mercury
+    LOGICAL            :: notDryRun
     INTEGER            :: JXUNIT, J, NJXX, PhotoId
     REAL(fp)           :: ND64MULT
 
     ! Strings
     CHARACTER(LEN=6)   :: TITLEJXX(JVN_)
+    CHARACTER(LEN=255) :: DATA_DIR
     CHARACTER(LEN=255) :: FILENAME
-    CHARACTER(LEN=255) :: fjx_data_dir
     CHARACTER(LEN=255) :: ErrMsg, ThisLoc
+
+    ! ewl: Added due to code taken out of rd_fs_fx
+    INTEGER            :: K
+    CHARACTER(LEN=50 ) :: TEXT
 
     !=================================================================
     ! INIT_FJX begins here!
@@ -143,14 +121,7 @@ CONTAINS
     RC          = GC_SUCCESS
     notDryRun   = ( .not. Input_Opt%DryRun )
     ErrMsg      = ''
-    ThisLoc     = ' -> at Init_FJX (in module GeosCore/fast_jx_mod.F90)'
-
-    ! Store Input_Opt options
-    amIRoot          = Input_Opt%amIRoot
-    dryRun           = Input_Opt%DryRun
-    fjx_data_dir     = Input_Opt%FASTJX_DATA_DIR
-    is_fullchem      = Input_Opt%ITS_A_FULLCHEM_SIM
-    is_mercury       = Input_Opt%ITS_A_MERCURY_SIM
+    ThisLoc     = ' -> at Init_FJX (in module GeosCore/fjx_interface_mod.F90)'
 
 #ifdef CLOUDJ
     ! For now, if using cloud-j we are still using this init function
@@ -161,54 +132,43 @@ CONTAINS
     ATAU0 = 0.010e+0_fp
 #endif
 
-    ! Skip these operations when running in dry-run mode
+    ! Skip these opterations when running in dry-run mode
     IF ( notDryRun ) THEN
-
-       ! Define species IDs
-       id_CH2IBr   = IND_('CH2IBr'  )
-       id_IBr      = IND_('IBr'     )
-       id_CH2ICl   = IND_('CH2ICl'  )
-       id_ICl      = IND_('ICl'     )
-       id_I2       = IND_('I2'      )
-       id_HOI      = IND_('HOI'     )
-       id_IO       = IND_('IO'      )
-       id_OIO      = IND_('OIO'     )
-       id_INO      = IND_('INO'     )
-       id_IONO     = IND_('IONO'    )
-       id_IONO2    = IND_('IONO2'   )
-       id_I2O2     = IND_('I2O2'    )
-       id_CH3I     = IND_('CH3i'    )
-       id_CH2I2    = IND_('CH2I2'   )
-       id_I2O4     = IND_('I2O4'    )
-       id_I2O3     = IND_('I2O3'    )
 
        ! Print info
        IF ( Input_Opt%amIRoot ) THEN
           write(6,*) ' Initializing Fast-JX v7.0 standalone CTM code.'
-!ewl: is this needed?
-!          if (W_.ne.8 .and. W_.ne.12 .and. W_.ne.18) then
-!             ErrMsg =  ' INIT_FJX: invalid no. wavelengths'
-!             CALL GC_Error( ErrMsg, RC, ThisLoc )
-!             RETURN
-!          endif
+
+          if (W_.ne.8 .and. W_.ne.12 .and. W_.ne.18) then
+             ErrMsg =  ' INIT_FJX: invalid no. wavelengths'
+             CALL GC_Error( ErrMsg, RC, ThisLoc )
+             RETURN
+          endif
        ENDIF
 
 #if defined( MODEL_CESM )
-       JXUNIT = 0
-       IF ( Input_Opt%amIRoot ) JXUNIT = findFreeLUN()
+       IF ( Input_Opt%amIRoot ) THEN
+          JXUNIT = findFreeLUN()
+       ELSE
+          JXUNIT = 0
+       ENDIF
 #else
+       ! Get a free LUN
        JXUNIT = findFreeLUN()
 #endif
 
     ENDIF
 
+    ! Define data directory for FAST-JX input
+    DATA_DIR = TRIM( Input_Opt%FAST_JX_DIR )
+
     !=====================================================================
     ! Read in fast-J X-sections (spectral data)
     !=====================================================================
-    FILENAME = TRIM(fjx_data_dir) // 'FJX_spec.dat'
+    FILENAME = TRIM( DATA_DIR ) // 'FJX_spec.dat'
 
     ! Read file, or just print filename if we are in dry-run mode
-    CALL RD_XXX( JXUNIT, TRIM(FILENAME), amIRoot, dryRun, RC)
+    CALL RD_XXX( JXUNIT, TRIM( FILENAME ), Input_Opt, RC)
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -234,11 +194,10 @@ CONTAINS
     ! Read in 5-wavelength scattering data
     ! (or just print file name if in dry-run mode)
     !=====================================================================
-    FILENAME = TRIM(fjx_data_dir) // 'jv_spec_mie.dat'
+    FILENAME = TRIM( DATA_DIR ) // 'jv_spec_mie.dat'
 
     ! Read data
-    CALL RD_MIE( JXUNIT, TRIM(FILENAME), amIRoot, dryRun, &
-                 Input_Opt%LBRC, RC )
+    CALL RD_MIE( JXUNIT, TRIM( FILENAME ), Input_Opt, RC )
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -251,7 +210,21 @@ CONTAINS
     ! Read in AOD data
     ! (or just print file name if in dry-run mode)
     !=====================================================================
-    CALL RD_AOD( JXUNIT, amIRoot, dryRun, fjx_data_dir, RC )
+    CALL RD_AOD( JXUNIT, Input_Opt, RC )
+
+!!ewl: took this out of RD_AOD
+    ! Only do the following if we are not running in dry-run mode
+    IF ( .not. Input_Opt%DryRun ) THEN
+
+       IF ( Input_Opt%amIRoot ) THEN
+          WRITE( 6, * ) 'Optics read for all wavelengths successfully'
+       ENDIF
+
+       ! Now calculate the required wavelengths in the LUT to calculate
+       ! the requested AOD
+       CALL CALC_AOD( Input_Opt )
+    ENDIF
+!!ewl
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -260,22 +233,16 @@ CONTAINS
        RETURN
     ENDIF
 
-    ! Now calculate the required wavelengths in the LUT to calculate
-    ! the requested AOD, and set up MIEDX array to interpret between GC
-    ! and FJX aerosol indexing
+    ! Set up MIEDX array to interpret between GC and FJX aerosol indexing
     IF ( notDryRun ) THEN
-       CALL CALC_AOD( Input_Opt )
-       CALL SET_AER( amIRoot )
+       CALL SET_AER( Input_Opt )
     ENDIF
 
     !=====================================================================
     ! Read in T & O3 climatology used to fill e.g. upper layers
     ! or if O3 not calc.
     !=====================================================================
-    nc_dir  = TRIM( Input_Opt%CHEM_INPUTS_DIR ) // 'FastJ_201204/'
-    FILENAME = TRIM( nc_dir ) // 'fastj.jv_atms_dat.nc'
-
-    CALL RD_PROF_NC( amIRoot, dryRun, TRIM(FILENAME), RC )
+    CALL RD_PROF_NC( Input_Opt, RC )
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -296,11 +263,255 @@ CONTAINS
     ! Read in photolysis rates used in chemistry code and mapping onto
     ! FJX J's CTM call:  read in J-values names and link to fast-JX names
     !=====================================================================
-    FILENAME = TRIM( Input_Opt%FAST_JX_DIR ) // 'FJX_j2j.dat'
+    FILENAME = TRIM( DATA_DIR ) // 'FJX_j2j.dat'
 
     ! Read mapping information
-    CALL RD_JS_JX( JXUNIT, TRIM(FILENAME), TITLEJXX, NJXX, amIRoot, &
-                   dryRun, is_fullchem, is_mercury, RC )
+    CALL RD_JS_JX( JXUNIT, TRIM( FILENAME ), TITLEJXX, NJXX, &
+                   Input_Opt, RC )
+
+! ewl: bring out of RD_JS_JX
+    !========================================================================
+    ! Flag special reactions that will be later adjusted by
+    ! routine PHOTRATE_ADJ (called from FlexChem)
+    !========================================================================
+
+    IF ( Input_Opt%ITS_A_FULLCHEM_SIM ) THEN
+       ! Loop over all photolysis reactions
+       DO K = 1, NRATJ
+
+          ! Strip all blanks from the reactants and products list
+          TEXT = JLABEL(K)
+          CALL CSTRIP( TEXT )
+
+          !IF ( Input_Opt%amIRoot ) THEN
+          !   WRITE(*,*) K, TRIM( TEXT )
+          !ENDIF
+
+          ! Look for certain reactions
+          SELECT CASE( TRIM( TEXT ) )
+             CASE( 'O2PHOTONOO' )
+                State_Chm%Photol%RXN_O2 = K     ! O2 + hv -> O + O
+             CASE( 'O3PHOTONO2O' )
+                State_Chm%Photol%RXN_O3_1 = K   ! O3 + hv -> O2 + O
+             CASE( 'O3PHOTONO2O(1D)' )
+                State_Chm%Photol%RXN_O3_2 = K   ! O3 + hv -> O2 + O(1D)
+             CASE( 'SO4PHOTONSO2OHOH' )
+                State_Chm%Photol%RXN_H2SO4 = K  ! SO4 + hv -> SO2 + OH + OH
+             CASE( 'NO2PHOTONNOO' )
+                State_Chm%Photol%RXN_NO2 = K    ! NO2 + hv -> NO + O
+             CASE( 'NOPHOTONNO' )
+                State_Chm%Photol%RXN_NO = K     ! NO + hv -> N + O
+             CASE( 'NO3PHOTONNO2O' )
+                State_Chm%Photol%RXN_NO3 = K    ! NO3 + hv -> NO2 + O
+             CASE( 'N2OPHOTONN2O' )
+                State_Chm%Photol%RXN_N2O = K    ! N2O + hv -> N2 + O
+             CASE( 'NITsPHOTONHNO2' )
+                State_Chm%Photol%RXN_JNITSa = K ! NITs + hv -> HNO2
+             CASE( 'NITsPHOTONNO2' )
+                State_Chm%Photol%RXN_JNITSb = K ! NITs + hv -> NO2
+             CASE( 'NITPHOTONHNO2' )
+                State_Chm%Photol%RXN_JNITa = K  ! NIT + hv -> HNO2
+             CASE( 'NITPHOTONNO2' )
+                State_Chm%Photol%RXN_JNITb = K  ! NIT + hv -> NO2
+             CASE( 'HNO3PHOTONNO2OH' )
+                State_Chm%Photol%RXN_JHNO3 = K  ! HNO3 + hv = OH + NO2
+             CASE DEFAULT
+                ! Nothing
+          END SELECT
+       ENDDO
+
+       !---------------------------------------------------------------------
+       ! Error check the various rxn flags
+       !---------------------------------------------------------------------
+       IF ( State_Chm%Photol%RXN_O2 < 0 ) THEN
+          ErrMsg = 'Could not find rxn O2 + hv -> O + O'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_O3_1 < 0 ) THEN
+          ErrMsg = 'Could not find rxn O3 + hv -> O2 + O'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_O3_2 < 0 ) THEN
+          ErrMsg = 'Could not find rxn O3 + hv -> O2 + O(1D)'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_NO2 < 0 ) THEN
+          ErrMsg = 'Could not find rxn NO2 + hv -> NO + O'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_NO2 < 0 ) THEN
+          ErrMsg = 'Could not find rxn NO2 + hv -> NO + O'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_JNITSa < 0 ) THEN
+          ErrMsg = 'Could not find rxn NITS + hv -> HNO2'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_JNITSb < 0 ) THEN
+          ErrMsg = 'Could not find rxn NITS + hv -> NO2'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_JNITa < 0 ) THEN
+          ErrMsg = 'Could not find rxn NIT + hv -> HNO2'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_JNITb < 0 ) THEN
+          ErrMsg = 'Could not find rxn NIT + hv -> NO2'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_H2SO4  < 0 ) THEN
+          ErrMsg = 'Could not find rxn SO4 + hv -> SO2 + OH + OH!'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_NO3 < 0 ) THEN
+          ErrMsg = 'Could not find rxn NO3 + hv -> NO2 + O'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_NO < 0 ) THEN
+          ErrMsg = 'Could not find rxn NO + hv -> O + N'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       IF ( State_Chm%Photol%RXN_N2O < 0 ) THEN
+          ErrMsg = 'Could not find rxn N2O + hv -> N2 + O(1D)'
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       !---------------------------------------------------------------------
+       ! Print out saved rxn flags for fullchem simulations
+       !---------------------------------------------------------------------
+       IF ( Input_Opt%amIRoot ) THEN
+          WRITE( 6, 100 ) REPEAT( '=', 79 )
+          WRITE( 6, 110 )
+          WRITE( 6, 120 ) State_Chm%Photol%RXN_O2
+          WRITE( 6, 130 ) State_Chm%Photol%RXN_O3_1
+          WRITE( 6, 140 ) State_Chm%Photol%RXN_O3_2
+          WRITE( 6, 180 ) State_Chm%Photol%RXN_JNITSa
+          WRITE( 6, 190 ) State_Chm%Photol%RXN_JNITSb
+          WRITE( 6, 200 ) State_Chm%Photol%RXN_JNITa
+          WRITE( 6, 210 ) State_Chm%Photol%RXN_JNITb
+          WRITE( 6, 160 ) State_Chm%Photol%RXN_H2SO4
+          WRITE( 6, 170 ) State_Chm%Photol%RXN_NO2
+          WRITE( 6, 100 ) REPEAT( '=', 79 )
+       ENDIF
+    ENDIF
+
+    !========================================================================
+    ! Flag reactions for diagnostics (only in Hg chem)
+    !========================================================================
+    IF ( Input_Opt%ITS_A_MERCURY_SIM ) THEN
+        ! Loop over all photolysis reactions
+        DO K = 1, NRATJ
+
+           ! Strip all blanks from the reactants and products list
+           TEXT = JLABEL(K)
+           CALL CSTRIP( TEXT )
+
+           ! Look for certain reactions
+           SELECT CASE( TRIM( TEXT ) )
+              CASE( 'O3PHOTONO2O' )
+                 State_Chm%Photol%RXN_O3_1 = K ! O3 + hv -> O2 + O
+              CASE( 'O3PHOTONO2O(1D)' )
+                 State_Chm%Photol%RXN_O3_2 = K ! O3 + hv -> O2 + O(1D)
+              CASE( 'NO2PHOTONNOO' )
+                 State_Chm%Photol%RXN_NO2 = K  ! NO2 + hv -> NO + O
+              CASE( 'BrOPHOTONBrO' )
+                 State_Chm%Photol%RXN_BrO = K  ! BrO + hv -> Br + O
+              CASE( 'ClOPHOTONClO' )
+                 State_Chm%Photol%RXN_ClO = K  ! ClO + hv -> Cl + O
+              CASE DEFAULT
+                 ! Nothing
+           END SELECT
+        ENDDO
+
+        !--------------------------------------------------------------------
+        ! Error check the various rxn flags
+        !--------------------------------------------------------------------
+        IF ( State_Chm%Photol%RXN_O3_1 < 0 ) THEN
+           ErrMsg = 'Could not find rxn O3 + hv -> O2 + O'
+           CALL GC_Error( ErrMsg, RC, ThisLoc )
+           RETURN
+        ENDIF
+
+        IF ( State_Chm%Photol%RXN_O3_2 < 0 ) THEN
+           ErrMsg = 'Could not find rxn O3 + hv -> O2 + O(1D) #1'
+           CALL GC_Error( ErrMsg, RC, ThisLoc )
+           RETURN
+        ENDIF
+
+        IF ( State_Chm%Photol%RXN_NO2 < 0 ) THEN
+           ErrMsg = 'Could not find rxn NO2 + hv -> NO + O'
+           CALL GC_Error( ErrMsg, RC, ThisLoc )
+           RETURN
+        ENDIF
+
+        IF ( State_Chm%Photol%RXN_BrO < 0 ) THEN
+           ErrMsg = 'Could not find rxn BrO + hv -> Br + O'
+           CALL GC_Error( ErrMsg, RC, ThisLoc )
+           RETURN
+        ENDIF
+
+        IF ( State_Chm%Photol%RXN_ClO < 0 ) THEN
+           ErrMsg = 'Could not find rxn ClO + hv -> Cl + O'
+           CALL GC_Error( ErrMsg, RC, ThisLoc )
+           RETURN
+        ENDIF
+
+       !---------------------------------------------------------------------
+       ! Print out saved rxn flags for Hg simulation
+       !---------------------------------------------------------------------
+       IF ( Input_Opt%amIRoot ) THEN
+          WRITE( 6, 100 ) REPEAT( '=', 79 )
+          WRITE( 6, 110 )
+          WRITE( 6, 130 ) State_Chm%Photol%RXN_O3_1
+          WRITE( 6, 140 ) State_Chm%Photol%RXN_O3_2
+          WRITE( 6, 170 ) State_Chm%Photol%RXN_NO2
+          WRITE( 6, 220 ) State_Chm%Photol%RXN_BrO
+          WRITE( 6, 230 ) State_Chm%Photol%RXN_ClO
+          WRITE( 6, 100 ) REPEAT( '=', 79 )
+       ENDIF
+    ENDIF
+
+    ! FORMAT statements
+100 FORMAT( a                                                 )
+110 FORMAT( 'Photo rxn flags saved for use in PHOTRATE_ADJ:', / )
+120 FORMAT( 'RXN_O2     [ O2   + hv -> O + O         ]  =  ', i5 )
+130 FORMAT( 'RXN_O3_1   [ O3   + hv -> O2 + O        ]  =  ', i5 )
+140 FORMAT( 'RXN_O3_2a  [ O3   + hv -> O2 + O(1D) #1 ]  =  ', i5 )
+150 FORMAT( 'RXN_O3_2b  [ O3   + hv -> O2 + O(1D) #2 ]  =  ', i5 )
+160 FORMAT( 'RXN_H2SO4  [ SO4  + hv -> SO2 + OH + OH ]  =  ', i5 )
+170 FORMAT( 'RXN_NO2    [ NO2  + hv -> NO + O        ]  =  ', i5 )
+180 FORMAT( 'RXN_JNITSa [ NITS + hv -> HNO2          ]  =  ', i5 )
+190 FORMAT( 'RXN_JNITSb [ NITS + hv -> NO2           ]  =  ', i5 )
+200 FORMAT( 'RXN_JNITa  [ NIT  + hv -> HNO2          ]  =  ', i5 )
+210 FORMAT( 'RXN_JNITb  [ NIT  + hv -> NO2           ]  =  ', i5 )
+220 FORMAT( 'RXN_BrO    [ BrO  + hv -> Br + O        ]  =  ', i5 )
+230 FORMAT( 'RXN_ClO    [ ClO  + hv -> Cl + O        ]  =  ', i5 )
+
+!ewl end
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -316,7 +527,7 @@ CONTAINS
        ! in the FJX_j2j.dat file.  We'll use this for the diagnostics.
        DO J = 1, JVN_
 
-          IF ( J == Rxn_O3_2 ) THEN
+          IF ( J == State_Chm%Photol%Rxn_O3_2 ) THEN
 
              !------------------------------------------------------------
              ! O3 + hv = O + O(1D)
@@ -325,7 +536,7 @@ CONTAINS
              !------------------------------------------------------------
              GC_Photo_Id(J) = State_Chm%nPhotol + 1
 
-          ELSE IF ( J == Rxn_O3_1 ) THEN
+          ELSE IF ( J == State_Chm%Photol%Rxn_O3_1 ) THEN
 
              !------------------------------------------------------------
              ! O3 + hv -> O + O
@@ -348,8 +559,9 @@ CONTAINS
           ! Print the mapping
           IF ( Input_Opt%amIRoot ) THEN
              IF ( GC_Photo_Id(J) > 0 ) THEN
-                WRITE(6, 200) RNAMES(J), J, GC_Photo_Id(J), JFACTA(J)
-200             FORMAT( a10, ':', i7, 2x, i7, 2x, f7.4 )
+! ewl: changed format from 200 to 240
+                WRITE(6, 240) RNAMES(J), J, GC_Photo_Id(J), JFACTA(J)
+240             FORMAT( a10, ':', i7, 2x, i7, 2x, f7.4 )
              ENDIF
           ENDIF
        ENDDO
@@ -378,7 +590,7 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE FAST_JX( Input_Opt, State_Chm, State_Diag, &
+  SUBROUTINE FAST_JX( WLAOD, Input_Opt, State_Chm, State_Diag, &
                       State_Grid, State_Met, RC )
 !
 ! !USES:
@@ -409,10 +621,14 @@ CONTAINS
 ! Approximate random overlap (balance between accuracy & speed)
 #define USE_APPROX_RANDOM_OVERLAP 1
 
+!! Maximum random cloud overlap (most computationally intensive)
+!#define USE_MAXIMUM_RANDOM_OVERLAP 1
 !==============================================================================
 !
 ! !INPUT PARAMETERS:
 !
+    INTEGER,        INTENT(IN)    :: WLAOD       ! AOD calculated how?
+                                                 ! (1: 550 nm, 0: 999 nm)
     TYPE(OptInput), INTENT(IN)    :: Input_Opt   ! Input options
     TYPE(ChmState), INTENT(IN)    :: State_Chm   ! Chemistry State object
     TYPE(GrdState), INTENT(IN)    :: State_Grid  ! Grid State object
@@ -465,8 +681,7 @@ CONTAINS
     REAL(fp)      :: ODNEW(State_Grid%NZ)
     REAL(fp)      :: P_CTM(State_Grid%NZ+2)
 
-    LOGICAL       :: AOD999    ! AOD calculated how? (1: 550 nm, 0: 999 nm)
-
+    LOGICAL       :: AOD999
     LOGICAL, SAVE :: FIRST = .true.
     LOGICAL       :: prtDebug
 
@@ -483,7 +698,7 @@ CONTAINS
     ! Initialize
     RC        = GC_SUCCESS
     ErrMsg    = ''
-    ThisLoc   = ' -> at Fast_JX (in module GeosCore/fast_jx_mod.F)'
+    ThisLoc   = ' -> at Fast_JX (in module GeosCore/fjx_interface_mod.F90)'
     prtDebug  = ( Input_Opt%LPRT .and. Input_Opt%amIRoot)
 
     ! Get day of year (0-365 or 0-366)
@@ -495,8 +710,8 @@ CONTAINS
     ! Get day of month
     DAY       = GET_DAY()
 
-    ! Assume AOD calculated at 999 nm
-    AOD999    = .TRUE.
+    ! Was AOD calculated at 999 nm or reference?
+    AOD999    = ( WLAOD == 0 )
 
     ! Zero diagnostic archival arrays to make sure that we don't have any
     ! leftover values from the last timestep near the top of the chemgrid
@@ -523,6 +738,13 @@ CONTAINS
           RETURN
        ENDIF
 
+#ifdef USE_MAXIMUM_RANDOM_OVERLAP
+       ! Special setup only for max random overlap
+       DO i = 1,State_Grid%NZ+1
+          INDGEN(i) = i       !(/(i,i=1,State_Grid%NZ+1)/)
+       ENDDO
+#endif
+
        ! Reset first-time flag
        FIRST = .FALSE.
 
@@ -540,6 +762,10 @@ CONTAINS
     !$OMP PRIVATE( P_CTM ,  T_CTM,  SFCA,      O3_TOMS, O3_CTM  ) &
     !$OMP PRIVATE( LCHEM,   OPTAER, N,         IOPT             ) &
     !$OMP PRIVATE( OPTDUST, OPTD,   CLDF1D                      ) &
+#ifdef USE_MAXIMUM_RANDOM_OVERLAP
+    !$OMP PRIVATE( FMAX,    KK,     NUMB,      KBOT             ) &
+    !$OMP PRIVATE( KTOP     ODNEW,  INDICATOR, INDIC            ) &
+#endif
     !$OMP SCHEDULE( DYNAMIC )
 
     ! Loop over latitudes and longitudes
@@ -613,6 +839,13 @@ CONTAINS
        !OPTD(:)    = 0d0
        !-----------------------------------------------------------
 
+#if defined( USE_LINEAR_OVERLAP )
+       !===========================================================
+       ! %%%% CLOUD OVERLAP: LINEAR ASSUMPTION %%%%
+       !
+       ! Directly use OPTDEPTH = TAUCLD * CLDTOT
+       !===========================================================
+
        ! Column cloud fraction (not less than zero)
        CLDF1D = State_Met%CLDF(NLON,NLAT,1:State_Grid%NZ)
        WHERE ( CLDF1D < 0e+0_fp ) CLDF1D = 0e+0_fp
@@ -620,18 +853,9 @@ CONTAINS
        ! NOTE: For GEOS-FP and MERRA-2 met fields, the optical
        ! depth is the in-cloud optical depth.  At this point it has
        ! NOT been multiplied by cloud fraction yet.  Therefore, we can
-       ! just apply the linear overlap formula as written above 
-       ! (i.e. multiply by cloud fraction), or the approximate random 
-       ! overlap formula as written (i.e. multiply by cloud fraction^1.5). 
-#if defined( USE_LINEAR_OVERLAP )
-       ! %%%% CLOUD OVERLAP: LINEAR ASSUMPTION %%%%
-       ! Directly use OPTDEPTH = TAUCLD * CLDTOT
+       ! just apply the ! we can just apply the linear overlap formula
+       ! as written above (i.e. multiply by cloud fraction).
        OPTD = OPTD * CLDF1D
-#elif defined( USE_APPROX_RANDOM_OVERLAP )
-       ! %%%% CLOUD OVERLAP: APPROX RANDOM OVERLAP ASSUMPTION %%%%
-       ! Use OPTDEPTH = TAUCLD * CLDTOT**1.5
-       OPTD = OPTD * ( CLDF1D )**1.5e+0_fp
-#endif
 
        ! Call FAST-JX routines to compute J-values
        CALL PHOTO_JX( CSZA,       SFCA,      P_CTM,  T_CTM,  &
@@ -639,6 +863,146 @@ CONTAINS
                       OPTDUST,    OPTD,      NLON,   NLAT,   &
                       YLAT,       DAY_OF_YR, MONTH,  DAY,    &
                       Input_Opt, State_Diag, State_Grid, State_Met )
+
+#elif defined( USE_APPROX_RANDOM_OVERLAP )
+       !===========================================================
+       ! %%%% CLOUD OVERLAP: APPROX RANDOM OVERLAP ASSUMPTION %%%%
+       !
+       ! Use OPTDEPTH = TAUCLD * CLDTOT**1.5
+       !===========================================================
+
+       ! Column cloud fraction (not less than zero)
+       CLDF1D = State_Met%CLDF(NLON,NLAT,1:State_Grid%NZ)
+       WHERE ( CLDF1D < 0e+0_fp ) CLDF1D = 0e+0_fp
+
+       ! NOTE: For GEOS-FP and MERRA-2 met fields, the optical
+       ! depth is the in-cloud optical depth.  At this point it has
+       ! NOT been multiplied by cloud fraction yet.  Therefore, we can
+       ! just apply the approximate random overlap formula as written
+       ! above (i.e. multiply by cloud fraction^1.5).
+       OPTD = OPTD * ( CLDF1D )**1.5e+0_fp
+
+       ! Call FAST-JX routines to compute J-values
+       CALL PHOTO_JX( CSZA,       SFCA,      P_CTM,  T_CTM,  &
+                      O3_CTM,     O3_TOMS,   AOD999, OPTAER, &
+                      OPTDUST,    OPTD,      NLON,   NLAT,   &
+                      YLAT,       DAY_OF_YR, MONTH,  DAY,    &
+                      Input_Opt, State_Diag, State_Grid, State_Met )
+
+#elif defined( USE_MAXIMUM_RANDOM_OVERLAP )
+       !===========================================================
+       ! %%%% CLOUD OVERLAP: MAXIMUM RANDOM OVERLAP %%%%
+       !
+       ! The Maximum-Random Overlap (MRAN) scheme assumes that
+       ! clouds in adjacent layers are maximally overlapped to
+       ! form a cloud block and that blocks of clouds separated by
+       ! clear layers are randomly overlapped.  A vertical profile
+       ! of fractional cloudiness is converted into a series of
+       ! column configurations with corresponding fractions
+       ! (see Liu et al., JGR 2006; hyl,3/3/04).
+       !
+       ! For more details about cloud overlap assumptions and
+       ! their effect on photolysis frequencies and key oxidants
+       ! in the troposphere, refer to the following articles:
+       !
+       ! (1) Liu, H., et al., Radiative effect of clouds on
+       !      tropospheric chemistry in a global three-dimensional
+       !      chemical transport model, J. Geophys. Res., vol.111,
+       !      D20303, doi:10.1029/2005JD006403, 2006.
+       ! (2) Tie, X., et al., Effect of clouds on photolysis and
+       !      oxidants in the troposphere, J. Geophys. Res.,
+       !      108(D20), 4642, doi:10.1029/2003JD003659, 2003.
+       ! (3) Feng, Y., et al., Effects of cloud overlap in
+       !      photochemical models, J. Geophys. Res., 109,
+       !      D04310, doi:10.1029/2003JD004040, 2004.
+       ! (4) Stubenrauch, C.J., et al., Implementation of subgrid
+       !      cloud vertical structure inside a GCM and its effect
+       !      on the radiation budget, J. Clim., 10, 273-287, 1997.
+       !-----------------------------------------------------------
+       ! MMRAN needs IN-CLOUD optical depth (ODNEW) as input
+       ! Use cloud fraction, instead of OPTD, to form cloud blocks
+       ! (hyl,06/19/04)
+       !===========================================================
+
+       ! Sort this out later
+       CALL ERROR_STOP('MMRAN_16 not yet FJX compatible.', 'fjx_interface_mod.F90')
+
+       !! Initialize
+       !FMAX(:)   = 0d0  ! max cloud fraction in each cloud block
+       !ODNEW(:)  = 0d0  ! in-cloud optical depth
+       !CLDF1D    = State_Met%CLDF(1:State_Grid%NZ,NLON,NLAT)
+       !INDICATOR = 0
+       !
+       !! set small negative CLDF or OPTD to zero.
+       !! Set indicator vector.
+       !WHERE ( CLDF1D <= 0d0 )
+       !   CLDF1D               = 0d0
+       !   OPTD                 = 0D0
+       !ELSEWHERE
+       !   INDICATOR(2:State_Grid%NZ+1) = 1
+       !ENDWHERE
+       !
+       !! Prevent negative opt depth
+       !WHERE ( OPTD < 0D0 ) OPTD   = 0D0
+       !
+       !!--------------------------------------------------------
+       !! Generate cloud blocks & get their Bottom and Top levels
+       !!--------------------------------------------------------
+       !INDICATOR = CSHIFT(INDICATOR, 1) - INDICATOR
+       !INDIC     = INDICATOR(1:State_Grid%NZ+1)
+       !
+       !! Number of cloud block
+       !NUMB      = COUNT( INDIC == 1 )
+       !
+       !! Bottom layer of each block
+       !KBOT(1:NUMB) = PACK(INDGEN, (INDIC == 1 ) )
+       !
+       !! Top layer of each block
+       !KTOP(1:NUMB) = PACK(INDGEN, (INDIC == -1) ) - 1
+       !
+       !!--------------------------------------------------------
+       !! For each cloud block, get Max Cloud Fractions, and
+       !! in-cloud optical depth vertical distribution.
+       !!--------------------------------------------------------
+       !DO KK = 1, NUMB
+       !
+       !   ! Max cloud fraction
+       !   FMAX(KK) = MAXVAL( CLDF1D(KBOT(KK):KTOP(KK)) )
+       !
+       !   ! NOTE: for the GEOS-FP and MERRA-2 met fields (i.e. with
+       !   ! optical depth & cloud fractions regridded with RegridTau)
+       !   ! OPTD is the in-cloud optical depth.  At this point it has
+       !   ! NOT been multiplied by cloud fraction yet.  Therefore,
+       !   ! we can just set ODNEW = OPTD. (bmy, hyl, 10/24/08)
+       !
+       !   ! ODNEW is adjusted in-cloud OD vertical distrib.
+       !   ODNEW(KBOT(KK):KTOP(KK)) = OPTD(KBOT(KK):KTOP(KK))
+       !
+       !ENDDO
+       !
+       !!--------------------------------------------------------
+       !! Apply Max RANdom if 1-6 clouds blocks, else use linear
+       !!--------------------------------------------------------
+       !SELECT CASE( NUMB )
+       !
+       !CASE( 0,7: )
+       !   CALL PHOTOJ( NLON,  NLAT,     YLAT,    DAY_OF_YR,
+       !                MONTH, DAY,      CSZA,    TEMP,
+       !                SFCA,  OPTD,     OPTDUST, OPTAER,
+       !                O3COL )
+       !
+       !CASE( 1:6 )
+       !    CALL MMRAN_16( NUMB,  NLON,  NLAT,      YLAT,
+       !                   DAY,   MONTH, DAY_OF_YR, CSZA,
+       !                   TEMP,  SFCA,  OPTDUST,   OPTAER,
+       !                   State_Grid%NZ, FMAX,  ODNEW,     KBOT,
+       !                   KTOP,  O3COL )
+       !
+       !END SELECT
+#endif
+
+! ewl: could I somehow move the flux diagnostics to here and out of photo_jx?
+
 
     ENDDO
     ENDDO
@@ -662,7 +1026,7 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE PHOTRATE_ADJ( Input_Opt, State_Diag, State_Met,                 &
+  SUBROUTINE PHOTRATE_ADJ( Input_Opt, State_Chm,  State_Diag, State_Met,     &
                            I,         J,          L,                         &
                            FRAC,      RC                                    )
 !
@@ -670,12 +1034,14 @@ CONTAINS
 !
     USE ErrCode_Mod
     USE Input_Opt_Mod,  ONLY : OptInput
+    USE State_Chm_Mod,  ONLY : ChmState
     USE State_Diag_Mod, ONLY : DgnState
     USE State_Met_Mod,  ONLY : MetState
 !
 ! !INPUT PARAMETERS:
 !
     TYPE(OptInput), INTENT(IN)    :: Input_Opt  ! Input_Options object
+    TYPE(ChmState), INTENT(IN)    :: State_Chm  ! Chemistry State object
     TYPE(MetState), INTENT(IN)    :: State_Met  ! Meteorology State object
     INTEGER,        INTENT(IN)    :: I, J, L    ! Lon, lat, lev indices
     REAL(fp),       INTENT(IN)    :: FRAC       ! Result of SO4_PHOTFRAC,
@@ -705,8 +1071,12 @@ CONTAINS
 !
 ! !LOCAL VARIABLES:
 !
+    INTEGER  :: RXN_JNITSa, RXN_JNITSb, RXN_JNITa, RXN_JNITb
+    INTEGER  :: RXN_JHNO3,  RXN_H2SO4,  RXN_O3_1,  RXN_O3_2
+    REAL(fp) :: JscaleNITs, JscaleNIT,  JNITChanA, JNITChanB
     REAL(fp) :: C_O2,     C_N2, C_H2,   ITEMPK, RO1DplH2O
     REAL(fp) :: RO1DplH2, RO1D, NUMDEN, TEMP,   C_H2O
+
 
     !=================================================================
     ! PHOTRATE_ADJ begins here!
@@ -717,6 +1087,14 @@ CONTAINS
     TEMP    = State_Met%T(I,J,L)                                 ! K
     NUMDEN  = State_Met%AIRNUMDEN(I,J,L)                         ! molec/cm3
     C_H2O   = State_Met%AVGW(I,J,L) * State_Met%AIRNUMDEN(I,J,L) ! molec/cm3
+    RXN_JNITSa = State_Chm%Photol%RXN_JNITSa
+    RXN_JNITSb = State_Chm%Photol%RXN_JNITSb
+    RXN_JNITa  = State_Chm%Photol%RXN_JNITa
+    RXN_JNITb  = State_Chm%Photol%RXN_JNITb
+    RXN_JHNO3  = State_Chm%Photol%RXN_JHNO3
+    RXN_H2SO4  = State_Chm%Photol%RXN_H2SO4
+    RXN_O3_1   = State_Chm%Photol%RXN_O3_1
+    RXN_O3_2   = State_Chm%Photol%RXN_O3_2
 
     ! For all mechanisms. Set the photolysis rate of NITs and NIT to a
     ! scaled value of JHNO3. NOTE: this is set in geoschem_config.yml
@@ -784,41 +1162,6 @@ CONTAINS
                         - ZPJ(L,RXN_O3_2,I,J)
 
   END SUBROUTINE PHOTRATE_ADJ
-!EOC
-!------------------------------------------------------------------------------
-!                  GEOS-Chem Global Chemical Transport Model                  !
-!------------------------------------------------------------------------------
-!BOP
-!
-! !IROUTINE: gc_exitc
-!
-! !DESCRIPTION: Subroutine GC_EXITC forces an error in GEOS-Chem and quits.
-!\\
-!\\
-! !INTERFACE:
-!
-  SUBROUTINE EXITC_GC (T_EXIT)
-!
-! !USES:
-!
-    USE ERROR_MOD, ONLY : ERROR_STOP
-!
-! !INPUT PARAMETERS:
-!
-    CHARACTER(LEN=*), INTENT(IN) ::  T_EXIT
-!
-! !REVISION HISTORY:
-!  28 Mar 2013 - S. D. Eastham - Copied from Fast-JX v7.0
-!  See https://github.com/geoschem/geos-chem for complete history
-!EOP
-!------------------------------------------------------------------------------
-!BOC
-!
-! !LOCAL VARIABLES:
-!
-    CALL ERROR_STOP( T_EXIT, 'fast_jx_mod.F90' )
-
-  END SUBROUTINE GC_EXITC
 !EOC
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
@@ -1064,7 +1407,266 @@ CONTAINS
 #endif
   END SUBROUTINE CALC_AOD
 !EOC
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
+! !IROUTINE: rd_prof_nc
+!
+! !DESCRIPTION: Subroutine RAD\_PROF\_NC reads in the reference climatology
+!  from a NetCDF file rather than an ASCII .dat.
+!\\
+!\\
+! !INTERFACE:
+!
+  SUBROUTINE RD_PROF_NC( Input_Opt, RC )
+!
+! !USES:
+!
+    USE ErrCode_Mod
+    USE Input_Opt_Mod, ONLY : OptInput
 
-END MODULE FJX_INTERFACE_GC_MOD
+#if defined( MODEL_CESM )
+    USE CAM_PIO_UTILS,     ONLY : CAM_PIO_OPENFILE
+    USE IOFILEMOD,         ONLY : GETFIL
+    USE PIO,               ONLY : PIO_CLOSEFILE
+    USE PIO,               ONLY : PIO_INQ_DIMID
+    USE PIO,               ONLY : PIO_INQ_DIMLEN
+    USE PIO,               ONLY : PIO_INQ_VARID
+    USE PIO,               ONLY : PIO_GET_VAR
+    USE PIO,               ONLY : PIO_NOERR
+    USE PIO,               ONLY : PIO_NOWRITE
+    USE PIO,               ONLY : FILE_DESC_T
+#else
+    USE m_netcdf_io_open
+    USE m_netcdf_io_read
+    USE m_netcdf_io_readattr
+    USE m_netcdf_io_close
+#endif
+!
+! !INPUT PARAMETERS:
+!
+    TYPE(OptInput), INTENT(IN)  :: Input_Opt   ! Input Options object
+!
+! !OUTPUT PARAMETERS:
+!
+    INTEGER,        INTENT(OUT) :: RC          ! Success or failure?
+!
+! !REMARKS:
+!  This file was automatically generated by the Perl scripts in the
+!  NcdfUtilities package (which ships w/ GEOS-Chem) and was subsequently
+!  hand-edited.
+!
+! !REVISION HISTORY:
+!  19 Apr 2012 - R. Yantosca - Initial version
+!  See https://github.com/geoschem/geos-chem for complete history
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES:
+!
+    ! Scalars
+    LOGICAL            :: FileExists          ! Does input file exist?
+    INTEGER            :: fId                 ! netCDF file ID
 
+    ! Strings
+    CHARACTER(LEN=255) :: nc_dir              ! netCDF directory name
+    CHARACTER(LEN=255) :: nc_file             ! netCDF file name
+    CHARACTER(LEN=255) :: nc_path             ! netCDF path name
+    CHARACTER(LEN=255) :: v_name              ! netCDF variable name
+    CHARACTER(LEN=255) :: a_name              ! netCDF attribute name
+    CHARACTER(LEN=255) :: a_val               ! netCDF attribute value
+    CHARACTER(LEN=255) :: FileMsg
+    CHARACTER(LEN=255) :: ErrMsg
+    CHARACTER(LEN=255) :: ThisLoc
 
+    ! Arrays
+    INTEGER            :: st3d(3), ct3d(3)    ! For 3D arrays
+
+#if defined( MODEL_CESM )
+    type(FILE_DESC_T)  :: ncid
+    INTEGER            :: vId, iret
+#endif
+
+    !=================================================================
+    ! RD_PROF_NC begins here!
+    !=================================================================
+
+    ! Initialize
+    ! Assume success
+    RC      = GC_SUCCESS
+    ErrMsg  = ''
+    ThisLoc = ' -> at RD_PROF_NC (in module GeosCore/fjx_interface_mod.F90)'
+
+    ! Directory and file names
+    nc_dir  = TRIM( Input_Opt%CHEM_INPUTS_DIR ) // 'FastJ_201204/'
+    nc_file = 'fastj.jv_atms_dat.nc'
+    nc_path = TRIM( nc_dir ) // TRIM( nc_file )
+
+    !=================================================================
+    ! In dry-run mode, print file path to dryrun log and exit.
+    ! Otherwise, print file path to stdout and continue.
+    !=================================================================
+
+    ! Test if the file exists
+    INQUIRE( FILE=TRIM( nc_path ), EXIST=FileExists )
+
+    ! Test if the file exists and define an output string
+    IF ( FileExists ) THEN
+       FileMsg = 'FAST-JX (RD_PROF_NC): Opening'
+    ELSE
+       FileMsg = 'FAST-JX (RD_PROF_NC): REQUIRED FILE NOT FOUND'
+    ENDIF
+
+    ! Write to stdout for both regular and dry-run simulations
+    IF ( Input_Opt%amIRoot ) THEN
+       WRITE( 6, 300 ) TRIM( FileMsg ), TRIM( nc_path )
+300    FORMAT( a, ' ', a )
+    ENDIF
+
+    ! For dry-run simulations, return to calling program.
+    ! For regular simulations, throw an error if we can't find the file.
+    IF ( Input_Opt%DryRun ) THEN
+       RETURN
+    ELSE
+       IF ( .not. FileExists ) THEN
+          WRITE( ErrMsg, 300 ) TRIM( FileMsg ), TRIM( nc_path )
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+    ENDIF
+
+    !=========================================================================
+    ! Open and read data from the netCDF file
+    !=========================================================================
+
+    ! Open netCDF file
+#if defined( MODEL_CESM )
+    CALL CAM_PIO_OPENFILE( ncid, TRIM(nc_path), PIO_NOWRITE )
+#else
+    CALL Ncop_Rd( fId, TRIM(nc_path) )
+#endif
+
+    ! Echo info to stdout
+    IF ( Input_Opt%amIRoot ) THEN
+       WRITE( 6, 100 ) REPEAT( '%', 79 )
+       WRITE( 6, 110 ) TRIM(nc_file)
+       WRITE( 6, 120 ) TRIM(nc_dir)
+    ENDIF
+
+    !----------------------------------------
+    ! VARIABLE: T
+    !----------------------------------------
+
+    ! Variable name
+    v_name = "T"
+
+    ! Read T from file
+    st3d   = (/  1,  1,  1 /)
+    ct3d   = (/ 51, 18, 12 /)
+#if defined( MODEL_CESM )
+    iret = PIO_INQ_VARID( ncid, trim(v_name), vid  )
+    iret = PIO_GET_VAR(   ncid, vid, TREF          )
+#else
+    CALL NcRd( TREF, fId, TRIM(v_name), st3d, ct3d )
+
+    ! Read the T:units attribute
+    a_name = "units"
+    CALL NcGet_Var_Attributes( fId,TRIM(v_name),TRIM(a_name),a_val )
+
+    ! Echo info to stdout
+    IF ( Input_Opt%amIRoot ) THEN
+       WRITE( 6, 130 ) TRIM(v_name), TRIM(a_val)
+    ENDIF
+#endif
+
+    !----------------------------------------
+    ! VARIABLE: O3
+    !----------------------------------------
+
+    ! Variable name
+    v_name = "O3"
+
+    ! Read O3 from file
+    st3d   = (/  1,  1,  1 /)
+    ct3d   = (/ 51, 18, 12 /)
+#if defined( MODEL_CESM )
+    iret = PIO_INQ_VARID( ncid, trim(v_name), vid  )
+    iret = PIO_GET_VAR(   ncid, vid, OREF          )
+#else
+    CALL NcRd( OREF, fId, TRIM(v_name), st3d, ct3d )
+
+    ! Read the O3:units attribute
+    a_name = "units"
+    CALL NcGet_Var_Attributes( fId,TRIM(v_name),TRIM(a_name),a_val )
+
+    ! Echo info to stdout
+    IF ( Input_Opt%amIRoot ) THEN
+       WRITE( 6, 130 ) TRIM(v_name), TRIM(a_val)
+    ENDIF
+#endif
+
+    !=================================================================
+    ! Cleanup and quit
+    !=================================================================
+
+    ! Close netCDF file
+#if defined( MODEL_CESM )
+    CALL PIO_CLOSEFILE( ncid )
+#else
+    CALL NcCl( fId )
+#endif
+
+    ! Echo info to stdout
+    IF ( Input_Opt%amIRoot ) THEN
+       WRITE( 6, 140 )
+       WRITE( 6, 100 ) REPEAT( '%', 79 )
+    ENDIF
+
+    ! FORMAT statements
+100 FORMAT( a                                              )
+110 FORMAT( '%% Opening file  : ',         a               )
+120 FORMAT( '%%  in directory : ',         a, / , '%%'     )
+130 FORMAT( '%% Successfully read ',       a, ' [', a, ']' )
+140 FORMAT( '%% Successfully closed file!'                 )
+
+  END SUBROUTINE RD_PROF_NC
+!EOC
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
+! !IROUTINE: gc_exitc
+!
+! !DESCRIPTION: Subroutine GC_EXITC forces an error in GEOS-Chem and quits.
+!\\
+!\\
+! !INTERFACE:
+!
+  SUBROUTINE GC_EXITC (T_EXIT)
+!
+! !USES:
+!
+    USE ERROR_MOD, ONLY : ERROR_STOP
+!
+! !INPUT PARAMETERS:
+!
+    CHARACTER(LEN=*), INTENT(IN) ::  T_EXIT
+!
+! !REVISION HISTORY:
+!  28 Mar 2013 - S. D. Eastham - Copied from Fast-JX v7.0
+!  See https://github.com/geoschem/geos-chem for complete history
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES:
+!
+    CALL ERROR_STOP( T_EXIT, 'fjx_interface_mod.F90' )
+
+  END SUBROUTINE GC_EXITC
+!EOC
+END MODULE FJX_INTERFACE_MOD

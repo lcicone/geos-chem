@@ -1434,13 +1434,13 @@ CONTAINS
 ! !USES:
 !
     USE ErrCode_Mod
-    USE FAST_JX_MOD,    ONLY : Init_FJX
-    USE FullChem_Mod,   ONLY : Init_FullChem
-    USE Input_Opt_Mod,  ONLY : OptInput
-    USE State_Chm_Mod,  ONLY : ChmState
-    USE State_Chm_Mod,  ONLY : Ind_
-    USE State_Diag_Mod, ONLY : DgnState
-    USE State_Grid_Mod, ONLY : GrdState
+    USE FJX_Interface_Mod,  ONLY : Init_FJX
+    USE FullChem_Mod,       ONLY : Init_FullChem
+    USE Input_Opt_Mod,      ONLY : OptInput
+    USE State_Chm_Mod,      ONLY : ChmState
+    USE State_Chm_Mod,      ONLY : Ind_
+    USE State_Diag_Mod,     ONLY : DgnState
+    USE State_Grid_Mod,     ONLY : GrdState
 !
 ! !INPUT PARAMETERS:
 !
