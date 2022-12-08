@@ -223,6 +223,7 @@ CONTAINS
 !
 ! !USES:
 !
+    USE CMN_Phot_Mod,       ONLY : ZPJ
     USE ERROR_MOD,          ONLY : ERROR_STOP
     USE ERROR_MOD,          ONLY : DEBUG_MSG
     USE Input_Opt_Mod,      ONLY : OptInput
@@ -237,12 +238,6 @@ CONTAINS
     USE TIME_MOD,           ONLY : GET_HOUR
     USE TIME_MOD,           ONLY : GET_LOCALTIME
     USE TIME_MOD,           ONLY : GET_MINUTE
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : ZPJ
-#else
-    ! ZPJ not in Cloud-J! See comment elsewhere on this in this file.
-    USE CMN_FJX_MOD,        ONLY : ZPJ
-#endif
 !
 ! !INPUT PARAMETERS:
 !
@@ -788,17 +783,7 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : RAA, IND999
-    !USE CMN_FJX_MOD,        ONLY : IND999
-    !USE CldJ_Cmn_Mod,       ONLY : RAA ! Get number of subscripts incorrect error for this
-    ! RAA(IND999,29)
-#else
-    !USE CldJ_Cmn_Mod,       ONLY : RAA
-    ! File does not yet have IND999.
-    ! (integer param set to 5 for index of RAA and Qaa of 999 nm wavelength)
-    USE CMN_FJX_MOD,        ONLY : RAA, IND999
-#endif
+    USE CMN_Phot_Mod,       ONLY : RAA, IND999
     USE ErrCode_Mod
     USE ERROR_MOD,          ONLY : IT_IS_NAN,ERROR_STOP
     USE Input_Opt_Mod,      ONLY : OptInput
@@ -3887,13 +3872,7 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : ZPJ
-#else
-    ! ZPJ not in Cloud-J! It is 4D array of output J-values.
-    ! Need to figure out if new name, needs to be added, or put in state_chm
-    USE CMN_FJX_MOD,        ONLY : ZPJ
-#endif
+    USE CMN_Phot_Mod,       ONLY : ZPJ
     USE Input_Opt_Mod,      ONLY : OptInput
     USE Species_Mod,        ONLY : SpcConc
     USE State_Chm_Mod,      ONLY : ChmState

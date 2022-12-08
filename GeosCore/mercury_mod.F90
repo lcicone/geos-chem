@@ -611,12 +611,8 @@ CONTAINS
     USE Depo_Mercury_Mod,   ONLY : ADD_Hg2_DD
     USE Depo_Mercury_Mod,   ONLY : ADD_HgP_DD
     USE FJX_Interface_Mod,  ONLY : FAST_JX
-#ifdef CLOUDJ
-    USE Cldj_CMN_Mod,       ONLY : nRatJ
-    USE CMN_FJX_MOD,        ONLY : ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
-#else
-    USE CMN_FJX_MOD,        ONLY : nRatJ, ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
-#endif
+    USE CMN_FastJX_Mod,     ONLY : nRatJ
+    USE CMN_Phot_Mod,       ONLY : ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
     USE GcKpp_Monitor,      ONLY : SPC_NAMES, FAM_NAMES
     USE GcKpp_Parameters
     USE GcKpp_Integrator,   ONLY : Integrate
@@ -1775,7 +1771,7 @@ CONTAINS
     USE State_Met_Mod,  ONLY : MetState
     USE State_Chm_Mod,  ONLY : ChmState
     USE Time_Mod,       ONLY : Get_Month
-    USE Cmn_FJX_Mod,    ONLY : ZPJ
+    USE Cmn_Phot_Mod,    ONLY : ZPJ
 !
 ! !INPUT PARAMETERS:
 !
@@ -1967,7 +1963,7 @@ CONTAINS
     USE State_Grid_Mod, ONLY : GrdState
     USE State_Met_Mod,  ONLY : MetState
     USE State_Chm_Mod,  ONLY : ChmState
-    USE Cmn_FJX_Mod,    ONLY : ZPJ
+    USE Cmn_Phot_Mod,    ONLY : ZPJ
 !
 ! !INPUT PARAMETERS:
 !
@@ -2131,7 +2127,7 @@ CONTAINS
     USE State_Grid_Mod, ONLY : GrdState
     USE State_Met_Mod,  ONLY : MetState
     USE State_Chm_Mod,  ONLY : ChmState
-    USE Cmn_Fjx_Mod,    ONLY : ZPJ
+    USE Cmn_Phot_Mod,    ONLY : ZPJ
 !
 ! !INPUT PARAMETERS:
 !
@@ -3449,12 +3445,8 @@ CONTAINS
 !
 ! !USES:
 !
-#ifdef CLOUDJ
-    USE Cldj_CMN_Mod,       ONLY : nRatJ
-    USE CMN_FJX_MOD,        ONLY : GC_Photo_Id
-#else
-    USE CMN_FJX_MOD,        ONLY : nRatJ, GC_Photo_Id
-#endif
+    USE CMN_FastJX_Mod,     ONLY : nRatJ
+    USE CMN_Phot_Mod,       ONLY : GC_Photo_Id
     USE Cmn_Size_Mod,       ONLY : nAer, nDust
     USE ErrCode_Mod
     USE FJX_Interface_Mod,  ONLY : Init_FJX

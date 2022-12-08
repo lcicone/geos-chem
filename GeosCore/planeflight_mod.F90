@@ -370,12 +370,8 @@ CONTAINS
     USE ErrCode_Mod
     USE ERROR_MOD,  ONLY : GEOS_CHEM_STOP
     USE FILE_MOD,   ONLY : IOERROR
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,  ONLY : JVN_, GC_Photo_Id
-#else
-    USE CMN_FJX_MOD,  ONLY : GC_Photo_Id
-    USE CldJ_Cmn_Mod, ONLY : JVN_
-#endif
+    USE CMN_FastJX_Mod,     ONLY : JVN_
+    USE CMN_Phot_Mod,       ONLY : GC_Photo_Id
     USE Input_Opt_Mod,      ONLY : OptInput
     USE Species_Mod,        ONLY : Species
     USE State_Chm_Mod,      ONLY : ChmState
@@ -1508,15 +1504,9 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : ODAER, QAA, QAA_AOD, ODMDUST
-    USE CMN_FJX_MOD,        ONLY : IWVSELECT, ACOEF_WV, BCOEF_WV
-#else
-    ! These are not in Cloud-J!
-    USE CMN_FJX_MOD,        ONLY : ODAER, QAA_AOD, ODMDUST
-    USE CMN_FJX_MOD,        ONLY : IWVSELECT, ACOEF_WV, BCOEF_WV
-    USE Cldj_Cmn_Mod,       ONLY : QAA
-#endif
+    USE CMN_Phot_Mod,       ONLY : ODAER, QAA_AOD, ODMDUST
+    USE CMN_Phot_Mod,       ONLY : IWVSELECT, ACOEF_WV, BCOEF_WV
+    USE CMN_FastJX_Mod,     ONLY : QAA
     USE CMN_SIZE_MOD,       ONLY : NDUST, NAER
     USE ErrCode_Mod
     USE ERROR_MOD,          ONLY : GEOS_CHEM_STOP

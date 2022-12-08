@@ -1197,18 +1197,10 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : NWVAART, NWVREQUIRED, QQAA, RDAA
-    USE CMN_FJX_MOD,        ONLY : IWV1000, NWVAA0, ODMDUST, IWVSELECT
-    USE CMN_FJX_MOD,        ONLY : ACOEF_WV, BCOEF_WV
-    USE CMN_FJX_MOD,        ONLY : IWVREQUIRED, NDUST
-#else
-    ! These are not in Cloud-J!
-    USE CMN_FJX_MOD,        ONLY : NWVAART, NWVREQUIRED, QQAA, RDAA
-    USE CMN_FJX_MOD,        ONLY : IWV1000, NWVAA0, ODMDUST, IWVSELECT
-    USE CMN_FJX_MOD,        ONLY : ACOEF_WV, BCOEF_WV
-    USE CMN_FJX_MOD,        ONLY : IWVREQUIRED, NDUST
-#endif
+    USE CMN_Phot_MOD,        ONLY : NWVAART, NWVREQUIRED, QQAA, RDAA
+    USE CMN_Phot_MOD,        ONLY : IWV1000, NWVAA0, ODMDUST, IWVSELECT
+    USE CMN_Phot_MOD,        ONLY : ACOEF_WV, BCOEF_WV
+    USE CMN_Phot_MOD,        ONLY : IWVREQUIRED, NDUST
     USE ErrCode_Mod
     USE Input_Opt_Mod,      ONLY : OptInput
     USE State_Chm_Mod,      ONLY : ChmState
@@ -1341,7 +1333,7 @@ CONTAINS
              ! but add on any others required
              IF (IIWV.LE.NWVAART) THEN
                 !index of RRTMG wavelengths starts after the standard NWVAA0
-                !(currently NWVAA0=11, set in CMN_FJX_mod based on the .dat
+                !(currently NWVAA0=11, set in CMN_Phot_mod based on the .dat
                 !LUT)
                 IWV = IIWV+NWVAA0
              ELSE

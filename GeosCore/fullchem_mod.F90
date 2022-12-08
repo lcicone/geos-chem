@@ -91,13 +91,8 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : JVN_, ZPJ, GC_PHOTO_ID
-#else
-    USE CldJ_Cmn_Mod,       ONLY : JVN_
-    USE CMN_FJX_MOD,        ONLY : ZPJ, GC_PHOTO_ID
-    ! JVN_ in Cloud-J but others are not
-#endif
+    USE CMN_FastJX_Mod,           ONLY : JVN_
+    USE CMN_Phot_Mod,             ONLY : ZPJ, GC_PHOTO_ID
     USE ErrCode_Mod
     USE ERROR_MOD
     USE FJX_Interface_Mod,        ONLY : PHOTRATE_ADJ, FAST_JX
@@ -619,7 +614,7 @@ CONTAINS
              !    photolysis species index (range: 1..State_Chm%nPhotol)
              !    for each of the FAST-JX photolysis species (range;
              !    1..JVN_) in the GC_PHOTO_ID array (located in module
-             !    CMN_FJX_MOD.F90).
+             !    CMN_Phot_MOD.F90).
              !===============================================================
 
              ! GC photolysis species index

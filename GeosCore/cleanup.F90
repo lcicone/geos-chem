@@ -18,12 +18,7 @@ SUBROUTINE CLEANUP( Input_Opt, State_Grid, ERROR, RC )
   USE AEROSOL_MOD,             ONLY : CLEANUP_AEROSOL
   USE CARBON_MOD,              ONLY : CLEANUP_CARBON
   USE CO2_MOD,                 ONLY : CLEANUP_CO2
-#ifndef CLOUDJ
-  USE CMN_FJX_Mod,             ONLY : Cleanup_CMN_FJX
-#else
-  ! use this for now too
-  USE CMN_FJX_Mod,             ONLY : Cleanup_CMN_FJX
-#endif
+  USE CMN_Phot_Mod,            ONLY : Cleanup_CMN_Phot
   USE DEPO_MERCURY_MOD,        ONLY : CLEANUP_DEPO_MERCURY
   USE DRYDEP_MOD,              ONLY : CLEANUP_DRYDEP
   USE DUST_MOD,                ONLY : CLEANUP_DUST
@@ -190,22 +185,12 @@ SUBROUTINE CLEANUP( Input_Opt, State_Grid, ERROR, RC )
      RETURN
   ENDIF
 
-#ifndef CLOUDJ
-  CALL Cleanup_CMN_FJX( RC )
+  CALL Cleanup_CMN_Phot( RC )
   IF ( RC /= GC_SUCCESS ) THEN
-     ErrMsg = 'Error encountered in "Cleanup_CMN_FJX"!'
+     ErrMsg = 'Error encountered in "Cleanup_CMN_Phot"!'
      CALL GC_Error( ErrMsg, RC, ThisLoc )
      RETURN
   ENDIF
-#else
-  ! Still do this for now
-  CALL Cleanup_CMN_FJX( RC )
-  IF ( RC /= GC_SUCCESS ) THEN
-     ErrMsg = 'Error encountered in "Cleanup_CMN_FJX"!'
-     CALL GC_Error( ErrMsg, RC, ThisLoc )
-     RETURN
-  ENDIF
-#endif
 
   CALL CLEANUP_MERCURY()
   CALL CLEANUP_OCEAN_MERCURY()

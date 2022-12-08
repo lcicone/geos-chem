@@ -16,11 +16,6 @@ MODULE RRTMG_RAD_TRANSFER_MOD
 !
 ! !USES:
 !
-!#ifndef CLOUDJ
-  USE CMN_FJX_MOD,  ONLY : RTODAER, RTSSAER, RTASYMAER, WVAA, SPECMASK
-!#else
-  ! These variables not in Cloud-J
-!#endif
   USE CMN_SIZE_MOD, ONLY : NDUST, NAER
 #if defined( MODEL_CLASSIC )
   USE OMP_LIB
@@ -149,16 +144,12 @@ CONTAINS
     !-----------------------------------------------------------------
     ! GEOS-Chem modules
     !-----------------------------------------------------------------
-!#ifndef CLOUDN
-    USE CMN_FJX_MOD,         ONLY : NSPECRAD  ! NUMBER OF SPECIES FOR RT
-    USE CMN_FJX_MOD,         ONLY : NASPECRAD ! NUMBER OF AEROSOL SPECIES
-    USE CMN_FJX_MOD,         ONLY : SPECMASK,   IRTWVSELECT
-    USE CMN_FJX_MOD,         ONLY : ACOEF_RTWV, BCOEF_RTWV, CCOEF_RTWV
-    USE CMN_FJX_MOD,         ONLY : WVAA,       NWVAA
-    USE CMN_FJX_MOD,         ONLY : NWVAA0
-!#else
-    ! These variables not in Cloud-J!
-!#endif
+    USE CMN_Phot_Mod,        ONLY : NSPECRAD  ! NUMBER OF SPECIES FOR RT
+    USE CMN_Phot_Mod,        ONLY : NASPECRAD ! NUMBER OF AEROSOL SPECIES
+    USE CMN_Phot_Mod,        ONLY : SPECMASK,   IRTWVSELECT
+    USE CMN_Phot_Mod,        ONLY : ACOEF_RTWV, BCOEF_RTWV, CCOEF_RTWV
+    USE CMN_Phot_Mod,        ONLY : WVAA,       NWVAA
+    USE CMN_Phot_Mod,        ONLY : NWVAA0
     USE ErrCode_Mod
     USE ERROR_MOD
     USE Input_Opt_Mod,       ONLY : OptInput
@@ -1730,11 +1721,7 @@ CONTAINS
 !
 ! !USES:
 !
-!#ifndef CLOUDJ
-    USE CMN_FJX_MOD, ONLY : SPECMASK, NSPECRAD, NASPECRAD
-!#else
-    ! These variables are not in Cloud-J!
-!#endif
+    USE CMN_Phot_Mod, ONLY : SPECMASK, NSPECRAD, NASPECRAD
 !
 ! !INPUT PARAMETERS:
 !
@@ -1979,11 +1966,7 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndev CLOUDJ
-    USE CMN_FJX_MOD
-#else
-    ! Not sure what is used here
-#endif
+    USE CMN_Phot_Mod
     USE ERROR_MOD,      ONLY : ALLOC_ERR
     USE State_Grid_Mod, ONLY : GrdState
 !
@@ -2400,11 +2383,7 @@ CONTAINS
 !
 ! !USES:
 !
-!#ifndef CLOUDJ
-    USE CMN_FJX_MOD
-!#else
-    ! Not sure what is used here
-!#endif
+    USE CMN_Phot_Mod
     USE ERROR_MOD,      ONLY : ALLOC_ERR
     USE PARRRTM,        ONLY : NGPTLW
     USE PARRRSW,        ONLY : NGPTSW

@@ -12351,12 +12351,8 @@ CONTAINS
 ! !USES:
 !
     USE ErrCode_Mod
-#ifdef CLOUDJ
-    USE CldJ_Cmn_Mod,       ONLY : W_
-#else
-    USE CMN_FJX_MOD,        ONLY : W_
-#endif
-    USE State_Chm_Mod, ONLY : ChmState
+    USE CMN_FastJX_Mod, ONLY : W_
+    USE State_Chm_Mod,  ONLY : ChmState
 !
 ! !INPUT PARAMETERS:
 !

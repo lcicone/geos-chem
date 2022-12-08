@@ -79,13 +79,8 @@ CONTAINS
 !
 ! !USES:
 !
-#ifndef CLOUDJ
-    USE CMN_FJX_MOD,        ONLY : Init_CMN_FJX
-#else
-    USE CMN_FJX_MOD,        ONLY : Init_CMN_FJX
-    !USE CldJ_Init_Mod,      ONLY : Init_FJX
-    ! I suspect init_fjx is not what we want here.
-#endif
+    USE CMN_FastJX_Mod,     ONLY : Init_CMN_FastJX
+    USE CMN_Phot_Mod,       ONLY : Init_CMN_Phot
     USE ErrCode_Mod
     USE Input_Opt_Mod
     USE State_Grid_Mod,     ONLY : GrdState
@@ -149,8 +144,11 @@ CONTAINS
     ThisLoc  = &
        ' -> at GC_Allocate_All  (in module GeosCore/gc_environment_mod.F90)'
 
-    ! Initialize CMN_FJX_mod.F90
-    CALL Init_CMN_FJX( Input_Opt, State_Grid, RC )
+    ! Initialize CMN_FastJX_mod.F90
+    CALL Init_CMN_FastJX( Input_Opt,State_Grid, RC )
+
+    ! Initialize CMN_Phot_mod.F90
+    CALL Init_CMN_Phot( Input_Opt, State_Grid, RC )
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN

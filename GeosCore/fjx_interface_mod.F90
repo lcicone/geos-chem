@@ -16,7 +16,8 @@ MODULE FJX_INTERFACE_MOD
 !
 ! !USES:
 !
-  USE CMN_FJX_MOD
+  USE CMN_FastJX_Mod
+  USE CMN_Phot_Mod
   USE FJX_Mod          ! ewl new
   USE PRECISION_MOD    ! For GEOS-Chem Precision (fp)
 #if defined( MODEL_CESM ) && defined( SPMD )
@@ -38,7 +39,10 @@ MODULE FJX_INTERFACE_MOD
 !
   PRIVATE :: GC_EXITC ! ewl new
   PRIVATE :: RD_PROF_NC
+  PRIVATE :: RD_AOD
   PRIVATE :: CALC_AOD
+  PRIVATE :: SET_PROF
+  PRIVATE :: SET_AER
 !
 ! !REVISION HISTORY:
 !  See https://github.com/geoschem/geos-chem for complete history
@@ -661,7 +665,7 @@ CONTAINS
     INTEGER, SAVE :: LASTMONTH = -1
     INTEGER       :: NLON, NLAT, DAY,  MONTH, DAY_OF_YR, L, N
     INTEGER       :: IOPT, LCHEM
-    REAL(fp)      :: CSZA, PRES, SFCA, YLAT,  O3_TOMS
+    REAL(fp)      :: CSZA, PRES, SFCA, YLAT,  O3_TOMS, SZA, SOLF
     REAL(fp)      :: O3_CTM(State_Grid%NZ+1)
     REAL(fp)      :: T_CTM(State_Grid%NZ+1), OPTD(State_Grid%NZ)
     REAL(fp)      :: OPTDUST(State_Grid%NZ,NDUST)
@@ -680,6 +684,12 @@ CONTAINS
     REAL(fp)      :: CLDF1D(State_Grid%NZ)
     REAL(fp)      :: ODNEW(State_Grid%NZ)
     REAL(fp)      :: P_CTM(State_Grid%NZ+2)
+    REAL(fp)      :: AERX_COL(A_,L1_)
+    REAL(fp)      :: T_CLIM(L1_)
+    REAL(fp)      :: O3_CLIM(L1_)
+    REAL(fp)      :: Z_CLIM(L1_+1)
+    REAL(fp)      :: AIR_CLIM(L1_)
+    REAL(fp)      :: VALJXX(L_,JVN_)
 
     LOGICAL       :: AOD999
     LOGICAL, SAVE :: FIRST = .true.
@@ -690,6 +700,9 @@ CONTAINS
 
     ! Strings
     CHARACTER(LEN=255) :: ErrMsg, ThisLoc
+
+    ! ewl: input to set_prof, but I question whether we need it
+    REAL(fp) :: ODCLOUD_COL(L_)
 
     !=================================================================
     ! FAST_JX begins here!
@@ -766,6 +779,9 @@ CONTAINS
     !$OMP PRIVATE( FMAX,    KK,     NUMB,      KBOT             ) &
     !$OMP PRIVATE( KTOP     ODNEW,  INDICATOR, INDIC            ) &
 #endif
+    !$OMP PRIVATE( SZA, SOLF, ODCLOUD_COL                       ) &
+    !$OMP PRIVATE( AERX_COL,  T_CLIM, O3_CLIM, Z_CLIM, AIR_CLIM ) &
+    !$OMP PRIVATE( VALJXX                                       ) &
     !$OMP SCHEDULE( DYNAMIC )
 
     ! Loop over latitudes and longitudes
@@ -839,6 +855,29 @@ CONTAINS
        !OPTD(:)    = 0d0
        !-----------------------------------------------------------
 
+#if defined( MODEL_GEOS )
+       ! Initialize diagnostics arrays
+       IF ( State_Diag%Archive_EXTRALNLEVS ) THEN
+          State_Diag%EXTRALNLEVS(ILON,ILAT) = 0.0
+       ENDIF
+       IF ( State_Diag%Archive_EXTRALNITER ) THEN
+          State_Diag%EXTRALNITER(ILON,ILAT) = 0.0
+       ENDIF
+#endif
+
+       if (State_Grid%NZ+1 .gt. JXL1_) then
+          call GC_EXITC(' PHOTO_JX: not enough levels in JX')
+       endif
+
+       ! Input conversion (SDE 03/29/13)
+       ! Calculate solar zenith angle (degrees)
+       CALL SOLAR_JX(DAY_OF_YR,CSZA,SZA,SOLF)
+       
+       ! check for dark conditions SZA > 98.0 deg => tan ht = 63 km or
+       !                                 99.0                 80 km
+       if (SZA .gt. 98.e+0_fp) cycle
+
+! ewl: better to put these options in geoschem_config.yml?
 #if defined( USE_LINEAR_OVERLAP )
        !===========================================================
        ! %%%% CLOUD OVERLAP: LINEAR ASSUMPTION %%%%
@@ -856,13 +895,6 @@ CONTAINS
        ! just apply the ! we can just apply the linear overlap formula
        ! as written above (i.e. multiply by cloud fraction).
        OPTD = OPTD * CLDF1D
-
-       ! Call FAST-JX routines to compute J-values
-       CALL PHOTO_JX( CSZA,       SFCA,      P_CTM,  T_CTM,  &
-                      O3_CTM,     O3_TOMS,   AOD999, OPTAER, &
-                      OPTDUST,    OPTD,      NLON,   NLAT,   &
-                      YLAT,       DAY_OF_YR, MONTH,  DAY,    &
-                      Input_Opt, State_Diag, State_Grid, State_Met )
 
 #elif defined( USE_APPROX_RANDOM_OVERLAP )
        !===========================================================
@@ -882,127 +914,138 @@ CONTAINS
        ! above (i.e. multiply by cloud fraction^1.5).
        OPTD = OPTD * ( CLDF1D )**1.5e+0_fp
 
-       ! Call FAST-JX routines to compute J-values
-       CALL PHOTO_JX( CSZA,       SFCA,      P_CTM,  T_CTM,  &
-                      O3_CTM,     O3_TOMS,   AOD999, OPTAER, &
-                      OPTDUST,    OPTD,      NLON,   NLAT,   &
-                      YLAT,       DAY_OF_YR, MONTH,  DAY,    &
-                      Input_Opt, State_Diag, State_Grid, State_Met )
-
 #elif defined( USE_MAXIMUM_RANDOM_OVERLAP )
-       !===========================================================
-       ! %%%% CLOUD OVERLAP: MAXIMUM RANDOM OVERLAP %%%%
-       !
-       ! The Maximum-Random Overlap (MRAN) scheme assumes that
-       ! clouds in adjacent layers are maximally overlapped to
-       ! form a cloud block and that blocks of clouds separated by
-       ! clear layers are randomly overlapped.  A vertical profile
-       ! of fractional cloudiness is converted into a series of
-       ! column configurations with corresponding fractions
-       ! (see Liu et al., JGR 2006; hyl,3/3/04).
-       !
-       ! For more details about cloud overlap assumptions and
-       ! their effect on photolysis frequencies and key oxidants
-       ! in the troposphere, refer to the following articles:
-       !
-       ! (1) Liu, H., et al., Radiative effect of clouds on
-       !      tropospheric chemistry in a global three-dimensional
-       !      chemical transport model, J. Geophys. Res., vol.111,
-       !      D20303, doi:10.1029/2005JD006403, 2006.
-       ! (2) Tie, X., et al., Effect of clouds on photolysis and
-       !      oxidants in the troposphere, J. Geophys. Res.,
-       !      108(D20), 4642, doi:10.1029/2003JD003659, 2003.
-       ! (3) Feng, Y., et al., Effects of cloud overlap in
-       !      photochemical models, J. Geophys. Res., 109,
-       !      D04310, doi:10.1029/2003JD004040, 2004.
-       ! (4) Stubenrauch, C.J., et al., Implementation of subgrid
-       !      cloud vertical structure inside a GCM and its effect
-       !      on the radiation budget, J. Clim., 10, 273-287, 1997.
-       !-----------------------------------------------------------
-       ! MMRAN needs IN-CLOUD optical depth (ODNEW) as input
-       ! Use cloud fraction, instead of OPTD, to form cloud blocks
-       ! (hyl,06/19/04)
-       !===========================================================
+       ! See commented out code in github history
+       CALL ERROR_STOP('MMRAN_16 not yet FJX compatible.', &
+                       'fjx_interface_mod.F90')
 
-       ! Sort this out later
-       CALL ERROR_STOP('MMRAN_16 not yet FJX compatible.', 'fjx_interface_mod.F90')
 
-       !! Initialize
-       !FMAX(:)   = 0d0  ! max cloud fraction in each cloud block
-       !ODNEW(:)  = 0d0  ! in-cloud optical depth
-       !CLDF1D    = State_Met%CLDF(1:State_Grid%NZ,NLON,NLAT)
-       !INDICATOR = 0
-       !
-       !! set small negative CLDF or OPTD to zero.
-       !! Set indicator vector.
-       !WHERE ( CLDF1D <= 0d0 )
-       !   CLDF1D               = 0d0
-       !   OPTD                 = 0D0
-       !ELSEWHERE
-       !   INDICATOR(2:State_Grid%NZ+1) = 1
-       !ENDWHERE
-       !
-       !! Prevent negative opt depth
-       !WHERE ( OPTD < 0D0 ) OPTD   = 0D0
-       !
-       !!--------------------------------------------------------
-       !! Generate cloud blocks & get their Bottom and Top levels
-       !!--------------------------------------------------------
-       !INDICATOR = CSHIFT(INDICATOR, 1) - INDICATOR
-       !INDIC     = INDICATOR(1:State_Grid%NZ+1)
-       !
-       !! Number of cloud block
-       !NUMB      = COUNT( INDIC == 1 )
-       !
-       !! Bottom layer of each block
-       !KBOT(1:NUMB) = PACK(INDGEN, (INDIC == 1 ) )
-       !
-       !! Top layer of each block
-       !KTOP(1:NUMB) = PACK(INDGEN, (INDIC == -1) ) - 1
-       !
-       !!--------------------------------------------------------
-       !! For each cloud block, get Max Cloud Fractions, and
-       !! in-cloud optical depth vertical distribution.
-       !!--------------------------------------------------------
-       !DO KK = 1, NUMB
-       !
-       !   ! Max cloud fraction
-       !   FMAX(KK) = MAXVAL( CLDF1D(KBOT(KK):KTOP(KK)) )
-       !
-       !   ! NOTE: for the GEOS-FP and MERRA-2 met fields (i.e. with
-       !   ! optical depth & cloud fractions regridded with RegridTau)
-       !   ! OPTD is the in-cloud optical depth.  At this point it has
-       !   ! NOT been multiplied by cloud fraction yet.  Therefore,
-       !   ! we can just set ODNEW = OPTD. (bmy, hyl, 10/24/08)
-       !
-       !   ! ODNEW is adjusted in-cloud OD vertical distrib.
-       !   ODNEW(KBOT(KK):KTOP(KK)) = OPTD(KBOT(KK):KTOP(KK))
-       !
-       !ENDDO
-       !
-       !!--------------------------------------------------------
-       !! Apply Max RANdom if 1-6 clouds blocks, else use linear
-       !!--------------------------------------------------------
-       !SELECT CASE( NUMB )
-       !
-       !CASE( 0,7: )
-       !   CALL PHOTOJ( NLON,  NLAT,     YLAT,    DAY_OF_YR,
-       !                MONTH, DAY,      CSZA,    TEMP,
-       !                SFCA,  OPTD,     OPTDUST, OPTAER,
-       !                O3COL )
-       !
-       !CASE( 1:6 )
-       !    CALL MMRAN_16( NUMB,  NLON,  NLAT,      YLAT,
-       !                   DAY,   MONTH, DAY_OF_YR, CSZA,
-       !                   TEMP,  SFCA,  OPTDUST,   OPTAER,
-       !                   State_Grid%NZ, FMAX,  ODNEW,     KBOT,
-       !                   KTOP,  O3COL )
-       !
-       !END SELECT
 #endif
 
-! ewl: could I somehow move the flux diagnostics to here and out of photo_jx?
+       ! Copy cloud OD data to a variable array (ewl: why???)
+       DO L=1,L_
+          ODCLOUD_COL(L) = OPTD(L)
+       ENDDO
+       
+       ! Use GEOS-Chem methodology to set vertical profiles of:
+       ! Pressure      (PPJ)    [hPa]
+       ! Temperature   (T_CLIm) [K]
+       ! Path density  (DDJ)    [# molec/cm2]
+       ! New methodology for:
+       ! Ozone density (OOJ)    [# O3 molec/cm2]
+       CALL SET_PROF (YLAT,        MONTH,     DAY,         &
+                      T_CTM,       P_CTM,     OPTD,        &
+                      OPTDUST,     OPTAER,    O3_CTM,      &
+                      O3_TOMS,     AERX_COL,  T_CLIM,      &
+                      O3_CLIM,     Z_CLIM,    AIR_CLIM,    &
+                      Input_Opt,   State_Grid )
 
+       ! Call FAST-JX routines to compute J-values
+       CALL PHOTO_JX( CSZA,      SFCA,       SZA,       SOLF,       &
+                      P_CTM,     T_CTM,      AOD999,    NLON,       &
+                      NLAT,      AERX_COL,   T_CLIM,    O3_CLIM,    &
+                      Z_CLIM,    AIR_CLIM,   Input_Opt, State_Grid, &
+                      State_Met, State_Diag, VALJXX )
+
+! ewl: I brought this out here. TODO: enable! Comment out in photo_jx.
+!       ! Fill out common-block array of J-rates
+!       DO L=1,State_Grid%MaxChemLev
+!          DO J=1,NRATJ
+!             IF (JIND(J).gt.0) THEN
+!                ZPJ(L,J,NLON,NLAT) = VALJXX(L,JIND(J))*JFACTA(J)
+!             ELSE
+!                ZPJ(L,J,NLON,NLAT) = 0.e+0_fp
+!             ENDIF
+!          ENDDO
+!       ENDDO
+!       
+!       ! Set J-rates outside the chemgrid to zero
+!       IF (State_Grid%MaxChemLev.lt.L_) THEN
+!          DO L=State_Grid%MaxChemLev+1,L_
+!             DO J=1,NRATJ
+!                ZPJ(L,J,NLON,NLAT) = 0.e+0_fp
+!             ENDDO
+!          ENDDO
+!       ENDIF
+
+! ewl: could I somehow move the flux diagnostics to here and out of photo_jx?
+!       ! ewl: The below code can be taken out of photo_jx, just need to
+!       ! figure out what photo_jx outputs it needs...
+!       ! (1) FSBOT
+!       ! (2) FJBOT
+!       ! (3) FLXD
+!       ! (4) FJFLX
+!       ! (5) SOLF
+!       ! (6) FL
+!       ! (7) UVXFACTOR
+!       ! (8) UVX_CONST
+!       !=================================================================
+!       ! UV radiative fluxes (direct, diffuse, net) [W/m2]
+!       !
+!       ! Updated for netCDF from nd64 (JMM 2019-09-11)
+!       ! Use it to calculate fluxes for output if necessary
+!       !
+!       ! Get net direct and net diffuse fluxes separately
+!       ! Order:
+!       !    1 - Net flux
+!       !    2 - Direct flux
+!       !    3 - Diffuse flux
+!       ! Convention: negative is downwards
+!       !=================================================================
+!       IF ( State_Diag%Archive_UVFluxDiffuse .or. &
+!            State_Diag%Archive_UVFluxDirect .or. &
+!            State_Diag%Archive_UVFluxNet ) THEN
+!       
+!          ! Loop over wavelength bins
+!          DO K = 1, W_
+!       
+!             ! Initialize
+!             FDIRECT  = 0.0_fp
+!             FDIFFUSE = 0.0_fp
+!       
+!             ! Direct & diffuse fluxes at each level
+!             FDIRECT(1)  = FSBOT(K)                    ! surface
+!             FDIFFUSE(1) = FJBOT(K)                    ! surface
+!             DO L = 2, State_Grid%NZ
+!                FDIRECT(L) = FDIRECT(L-1) + FLXD(L-1,K)
+!                FDIFFUSE(L) = FJFLX(L-1,K)
+!             ENDDO
+!       
+!             ! Constant to multiply UV fluxes at each wavelength bin
+!             UVX_CONST = SOLF * FL(K) * UVXFACTOR(K)
+!       
+!             ! Archive into diagnostic arrays
+!             DO L = 1, State_Grid%NZ
+!       
+!                IF ( State_Diag%Archive_UVFluxNet ) THEN
+!                   S = State_Diag%Map_UvFluxNet%id2slot(K)
+!                   IF ( S > 0 ) THEN
+!                      State_Diag%UVFluxNet(NLON,NLAT,L,S) =  &
+!                      State_Diag%UVFluxNet(NLON,NLAT,L,S) +  &
+!                           ( ( FDIRECT(L) + FDIFFUSE(L) ) * UVX_CONST )
+!                   ENDIF
+!                ENDIF
+!       
+!                IF ( State_Diag%Archive_UVFluxDirect ) THEN
+!                   S = State_Diag%Map_UvFluxDirect%id2slot(K)
+!                   IF ( S > 0 ) THEN
+!                      State_Diag%UVFluxDirect(NLON,NLAT,L,S) =  &
+!                      State_Diag%UVFluxDirect(NLON,NLAT,L,S) +  &
+!                           ( FDIRECT(L) * UVX_CONST )
+!                   ENDIF
+!                ENDIF
+!       
+!                IF ( State_Diag%Archive_UVFluxDiffuse ) THEN
+!                   S = State_Diag%Map_UvFluxDiffuse%id2slot(K)
+!                   IF ( S > 0 ) THEN
+!                      State_Diag%UVFluxDiffuse(NLON,NLAT,L,S) =  &
+!                      State_Diag%UVFluxDiffuse(NLON,NLAT,L,S) +  &
+!                           ( FDIFFUSE(L) * UVX_CONST )
+!                   ENDIF
+!                ENDIF
+!             ENDDO
+!          ENDDO
+!       ENDIF
 
     ENDDO
     ENDDO
@@ -1168,6 +1211,232 @@ CONTAINS
 !------------------------------------------------------------------------------
 !BOP
 !
+! !IROUTINE: rd_aod
+!
+! !DESCRIPTION: Subroutine RD\_AOD reads aerosol phase functions that are
+!  used to scale diagnostic output to an arbitrary wavelengh.  This
+!  facilitates comparing with satellite observations.
+!\\
+!\\
+! !INTERFACE:
+!
+  SUBROUTINE RD_AOD( NJ1, Input_Opt, RC )
+!
+! !USES:
+!
+    USE CMN_FastJX_Mod
+    USE ErrCode_Mod
+    USE Input_Opt_Mod, ONLY : OptInput
+!
+! !INPUT PARAMETERS:
+!
+    INTEGER,          INTENT(IN)  :: NJ1         ! Unit # of file to open
+    TYPE(OptInput),   INTENT(IN)  :: Input_Opt   ! Input Options object
+!
+! !OUTPUT PARAMETERS:
+!
+    INTEGER,          INTENT(OUT) :: RC          ! Success or failure?
+!
+! !REMARKS:
+!  The .dat files for each species contain the optical properties
+!  at multiple wavelengths to be used in the online calculation of the aerosol
+!  optical depth diagnostics.
+!  These properties have been calculated using the same size and optical
+!  properties as the FJX_spec.dat file used for the FAST-J photolysis
+!  calculations (which is now redundant for aerosols, the values in the .dat
+!  files here are now used). The file currently contains 11 wavelengths
+!  for Fast-J and other commonly used wavelengths for satellite and
+!  AERONET retrievals. 30 wavelengths follow that map onto RRTMG
+!  wavebands for radiaitive flux calculations (not used if RRTMG is off).
+!  A complete set of optical properties from 250-2000 nm for aerosols is
+!  available at:
+!  ftp://ftp.as.harvard.edu/geos-chem/data/aerosol_optics/hi_spectral_res
+!                                                                             .
+!     -- Colette L. Heald, 05/10/10)
+!     -- David A. Ridley, 05/10/13 (update for new optics files)
+!
+! !REVISION HISTORY:
+!  10 May 2010 - C. Heald      - Initial version
+!  See https://github.com/geoschem/geos-chem for complete history
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES
+!
+    ! Scalars
+    INTEGER            :: I, J, K, N
+    INTEGER            :: IOS
+    LOGICAL            :: LBRC, FileExists
+
+    ! Strings
+    CHARACTER(LEN=78 ) :: TITLE0
+    CHARACTER(LEN=255) :: DATA_DIR
+    CHARACTER(LEN=255) :: THISFILE
+    CHARACTER(LEN=255) :: FileMsg
+    CHARACTER(LEN=255) :: ErrMsg
+    CHARACTER(LEN=255) :: ThisLoc
+
+    ! String arrays
+    CHARACTER(LEN=30)  :: SPECFIL(8)
+
+    !================================================================
+    ! RD_AOD begins here!
+    !================================================================
+
+    ! Initialize
+    RC       = GC_SUCCESS
+    ErrMsg   = ''
+    ThisLoc  = ' -> at RD_AOD (in module GeosCore/fast_jx_mod.F90)'
+    LBRC     = Input_Opt%LBRC
+    DATA_DIR = TRIM( Input_Opt%FAST_JX_DIR )
+
+    ! IMPORTANT: aerosol_mod.F and dust_mod.F expect aerosols in this order
+    !
+    ! Treating strat sulfate with GADS data but modified to match
+    ! the old Fast-J values size (r=0.09um, sg=0.6) - I think there's
+    ! evidence that this is too smale and narrow e.g. Deshler et al. 2003
+    ! NAT should really be associated with something like cirrus cloud
+    ! but for now we are just treating the NAT like the sulfate... limited
+    ! info but ref index is similar e.g. Scarchilli et al. (2005)
+    !(DAR 05/2015)
+    DATA SPECFIL /"so4.dat","soot.dat","org.dat", &
+                  "ssa.dat","ssc.dat",            &
+                  "h2so4.dat","h2so4.dat",        &
+                  "dust.dat"/
+
+    ! Loop over the array of filenames
+    DO k = 1, NSPAA
+
+       ! Choose different set of input files for standard (trop+strat chenm)
+       ! and tropchem (trop-only chem) simulations
+       THISFILE = TRIM( DATA_DIR ) // TRIM( SPECFIL(k) )
+
+       !--------------------------------------------------------------
+       ! In dry-run mode, print file path to dryrun log and cycle.
+       ! Otherwise, print file path to stdout and continue.
+       !--------------------------------------------------------------
+
+       ! Test if the file exists
+       INQUIRE( FILE=TRIM( ThisFile ), EXIST=FileExists )
+
+       ! Test if the file exists and define an output string
+       IF ( FileExists ) THEN
+          FileMsg = 'FAST-JX (RD_AOD): Opening'
+       ELSE
+          FileMsg = 'FAST-JX (RD_AOD): REQUIRED FILE NOT FOUND'
+       ENDIF
+
+       ! Write to stdout for both regular and dry-run simulations
+       IF ( Input_Opt%amIRoot ) THEN
+          WRITE( 6, 300 ) TRIM( FileMsg ), TRIM( ThisFile )
+300       FORMAT( a, ' ', a )
+       ENDIF
+
+       ! For dry-run simulations, cycle to next file.
+       ! For regular simulations, throw an error if we can't find the file.
+       IF ( Input_Opt%DryRun ) THEN
+          CYCLE
+       ELSE
+          IF ( .not. FileExists ) THEN
+             WRITE( ErrMsg, 300 ) TRIM( FileMsg ), TRIM( ThisFile )
+             CALL GC_Error( ErrMsg, RC, ThisLoc )
+             RETURN
+          ENDIF
+       ENDIF
+
+       !--------------------------------------------------------------
+       ! If not a dry-run, read data from each species file
+       !--------------------------------------------------------------
+
+#if defined( MODEL_CESM )
+       ! Only read file on root thread if using CESM
+       IF ( Input_Opt%amIRoot ) THEN
+#endif
+
+       ! Open file
+       OPEN( NJ1, FILE=TRIM( THISFILE ), STATUS='OLD', IOSTAT=RC )
+
+       ! Error check
+       IF ( RC /= 0 ) THEN
+          ErrMsg = 'Error opening file: ' // TRIM( ThisFile )
+          CALL GC_Error( ErrMsg, RC, ThisLoc )
+          RETURN
+       ENDIF
+
+       ! Read header lines
+       READ(  NJ1, '(A)' ) TITLE0
+       IF ( Input_Opt%amIRoot ) WRITE( 6, '(1X,A)' ) TITLE0
+
+       ! Second header line added for more info
+       READ(  NJ1, '(A)' ) TITLE0
+       IF ( Input_Opt%amIRoot ) WRITE( 6, '(1X,A)' ) TITLE0
+
+       READ(  NJ1, '(A)' ) TITLE0
+110    FORMAT( 3x, a20 )
+
+       DO i = 1, NRAA
+       DO j = 1, NWVAA
+
+          READ(NJ1,*) WVAA(j,k),RHAA(i,k),NRLAA(j,i,k),NCMAA(j,i,k), &
+                      RDAA(i,k),RWAA(i,k),SGAA(i,k),QQAA(j,i,k),   &
+                      ALPHAA(j,i,k),REAA(i,k),SSAA(j,i,k),         &
+                      ASYMAA(j,i,k),(PHAA(j,i,k,n),n=1,8)
+
+          ! make note of where 1000nm is for FAST-J calcs
+          IF (WVAA(j,k).EQ.1000.0) IWV1000=J
+
+       ENDDO
+       ENDDO
+
+       ! Close file
+       CLOSE( NJ1 )
+
+#if defined( MODEL_CESM )
+       ENDIF
+#endif
+
+    ENDDO
+
+#if defined( MODEL_CESM ) && defined( SPMD )
+    CALL MPIBCAST( WVAA,      Size(WVAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( RHAA,      Size(RHAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( NRLAA,     Size(NRLAA),    MPIR8,   0, MPICOM )
+    CALL MPIBCAST( NCMAA,     Size(NCMAA),    MPIR8,   0, MPICOM )
+    CALL MPIBCAST( RDAA,      Size(RDAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( RWAA,      Size(RWAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( SGAA,      Size(SGAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( QQAA,      Size(QQAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( ALPHAA,    Size(ALPHAA),   MPIR8,   0, MPICOM )
+    CALL MPIBCAST( REAA,      Size(REAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( SSAA,      Size(SSAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( ASYMAA,    Size(ASYMAA),   MPIR8,   0, MPICOM )
+    CALL MPIBCAST( PHAA,      Size(PHAA),     MPIR8,   0, MPICOM )
+    CALL MPIBCAST( IWV1000,   1,              MPIINT,  0, MPICOM )
+#endif
+
+! ewl: this and subroutine calc_aod moved to fast_jx_interface_mod.F90
+!    !=================================================================
+!    ! Only do the following if we are not running in dry-run mode
+!    !=================================================================
+!    IF ( .not. Input_Opt%DryRun ) THEN
+!
+!       IF ( Input_Opt%amIRoot ) THEN
+!          WRITE( 6, * ) 'Optics read for all wavelengths successfully'
+!       ENDIF
+!
+!       ! Now calculate the required wavelengths in the LUT to calculate
+!       ! the requested AOD
+!       CALL CALC_AOD( Input_Opt )
+!    ENDIF
+
+  END SUBROUTINE RD_AOD
+!EOC
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
 ! !IROUTINE: calc_aod
 !
 ! !DESCRIPTION: Subroutine CALC\_AOD works out the closest tie points
@@ -1183,13 +1452,13 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FJX_MOD, ONLY : NWVAA, NWVAA0, WVAA
-    USE CMN_FJX_MOD, ONLY : IWVSELECT
-    USE CMN_FJX_MOD, ONLY : IRTWVSELECT
-    USE CMN_FJX_MOD, ONLY : ACOEF_WV, BCOEF_WV, CCOEF_WV
-    USE CMN_FJX_MOD, ONLY : ACOEF_RTWV, BCOEF_RTWV, CCOEF_RTWV
-    USE CMN_FJX_MOD, ONLY : NWVREQUIRED, IWVREQUIRED
-    USE CMN_FJX_MOD, ONLY : NRTWVREQUIRED, IRTWVREQUIRED
+    USE CMN_Phot_Mod,  ONLY : NWVAA, NWVAA0, WVAA
+    USE CMN_Phot_Mod,  ONLY : IWVSELECT
+    USE CMN_Phot_Mod,  ONLY : IRTWVSELECT
+    USE CMN_Phot_Mod,  ONLY : ACOEF_WV, BCOEF_WV, CCOEF_WV
+    USE CMN_Phot_Mod,  ONLY : ACOEF_RTWV, BCOEF_RTWV, CCOEF_RTWV
+    USE CMN_Phot_Mod,  ONLY : NWVREQUIRED, IWVREQUIRED
+    USE CMN_Phot_Mod,  ONLY : NRTWVREQUIRED, IRTWVREQUIRED
     USE Input_Opt_Mod, ONLY : OptInput
 #ifdef RRTMG
     USE PARRRTM,     ONLY : NBNDLW
@@ -1633,6 +1902,389 @@ CONTAINS
 140 FORMAT( '%% Successfully closed file!'                 )
 
   END SUBROUTINE RD_PROF_NC
+!EOC
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
+! !IROUTINE: set_prof
+!
+! !DESCRIPTION: Subroutine SET\_PROF sets vertical profiles for a given
+!  latitude and longitude.
+!\\
+!\\
+! !INTERFACE:
+!
+  SUBROUTINE SET_PROF( YLAT,      MONTH,  DAY,     T_CTM,  P_CTM,    &
+                       CLDOD,     DSTOD,  AEROD,   O3_CTM, O3_TOMS,  &
+                       AERCOL,    T_CLIM, O3_CLIM, Z_CLIM, AIR_CLIM, &
+                       Input_Opt, State_Grid )
+!
+! !USES:
+!
+    USE CMN_FastJX_Mod
+    USE CMN_SIZE_Mod,       ONLY : NAER, NRH
+    USE Input_Opt_Mod,      ONLY : OptInput
+    USE PhysConstants,      ONLY : AIRMW, AVO, g0, BOLTZ
+    USE State_Grid_Mod,     ONLY : GrdState
+!
+! !INPUT PARAMETERS:
+!
+    REAL(fp), INTENT(IN)       :: YLAT              ! Latitude (degrees)
+    INTEGER,  INTENT(IN)       :: MONTH             ! Month
+    INTEGER,  INTENT(IN)       :: DAY               ! Day *of month*
+    REAL(fp), INTENT(IN)       :: T_CTM(L1_)        ! CTM temperatures (K)
+    REAL(fp), INTENT(IN)       :: O3_TOMS           ! O3 column (DU)
+    REAL(fp), INTENT(IN)       :: P_CTM(L1_+1)      ! CTM edge pressures (hPa)
+    REAL(fp), INTENT(INOUT)    :: CLDOD(L_)         ! Cloud optical depth
+    REAL(fp), INTENT(IN)       :: DSTOD(L_,NDUST)   ! Mineral dust OD
+    REAL(fp), INTENT(IN)       :: AEROD(L_,A_)      ! Aerosol OD
+    REAL(fp), INTENT(IN)       :: O3_CTM(L1_)       ! CTM ozone (molec/cm3)
+    TYPE(OptInput), INTENT(IN) :: Input_Opt         ! Input options
+    TYPE(GrdState), INTENT(IN) :: State_Grid        ! Grid State object
+!
+! !OUTPUT VARIABLES:
+!
+    REAL(fp), INTENT(OUT)      :: AERCOL(A_,L1_)    ! Aerosol column
+    REAL(fp), INTENT(OUT)      :: T_CLIM(L1_)       ! Clim. temperatures (K)
+    REAL(fp), INTENT(OUT)      :: Z_CLIM(L1_+1)     ! Edge altitudes (cm)
+    REAL(fp), INTENT(OUT)      :: O3_CLIM(L1_)      ! O3 column depth (#/cm2)
+    REAL(fp), INTENT(OUT)      :: AIR_CLIM(L1_)     ! O3 column depth (#/cm2)
+!
+! !REMARKS:
+!
+! !REVISION HISTORY:
+!  30 Mar 2013 - S. D. Eastham - Adapted from J. Mao code
+!  See https://github.com/geoschem/geos-chem for complete history
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES:
+!
+    INTEGER                  :: I, K, L, M, N, LCTM
+    REAL(fp)                 :: DLOGP,F0,T0,B0,PB,PC,XC,MASFAC,SCALEH
+    REAL(fp)                 :: PSTD(52),OREF2(51),TREF2(51)
+    REAL(fp)                 :: PROFCOL, ODSUM
+    REAL(fp), PARAMETER      :: ODMAX = 200.0e+0_fp
+
+    ! Local variables for quantities from Input_Opt
+    LOGICAL :: USE_ONLINE_O3
+
+    !=================================================================
+    ! SET_PROF begins here!
+    !=================================================================
+
+    ! Copy fields from INPUT_OPT
+    USE_ONLINE_O3   = Input_Opt%USE_ONLINE_O3
+
+    ! Zero aerosol column
+    DO K=1,A_
+       DO I=1,L1_
+          AERCOL(K,I) = 0.e+0_fp
+       ENDDO
+    ENDDO
+
+    ! Scale optical depths to stay within limits
+    ODSUM = 0.e+0_fp
+    DO I=1,L_
+       CLDOD(I) = DBLE(CLDOD(I))
+       ODSUM = ODSUM + CLDOD(I)
+    ENDDO
+    IF (ODSUM.gt.ODMAX) THEN
+       ODSUM = ODMAX/ODSUM ! Temporary
+       DO I=1,L_
+          CLDOD(I) = CLDOD(I)*ODSUM
+       ENDDO
+       ODSUM = ODMAX
+    ENDIF
+
+    !=================================================================
+    ! Set up pressure levels for O3/T climatology - assume that value
+    ! given for each 2 km z* level applies from 1 km below to 1 km
+    ! above, so select pressures at these boundaries. Surface level
+    ! values at 1000 mb are assumed to extend down to the actual
+    ! surface pressure for this lat/lon.
+    !=================================================================
+    PSTD(1)  = MAX(P_CTM(1),1000.e+0_fp)
+    PSTD(2)  = 1000.e+0_fp * 10.e+0_fp ** (-1.e+0_fp/16.e+0_fp)
+    DLOGP    = 10.e+0_fp**(-2.e+0_fp/16.e+0_fp)
+    DO I=3,51
+       PSTD(I) = PSTD(I-1) * DLOGP
+    ENDDO
+    PSTD(52) = 0.e+0_fp
+
+    ! Mass factor - delta-Pressure [hPa] to delta-Column [molec/cm2]
+    MASFAC = 100.e+0_fp * AVO / ( AIRMW * g0 * 10.e+0_fp )
+
+    ! Select appropriate monthly and latitudinal profiles
+    ! Now use YLAT instead of Oliver's YDGRD(NSLAT) (bmy, 9/13/99)
+    M = MAX( 1, MIN( 12, MONTH                   ) )
+    L = MAX( 1, MIN( 18, ( INT(YLAT) + 99 ) / 10 ) )
+
+    ! Temporary arrays for climatology data
+    DO I = 1, 51
+       OREF2(I) = OREF(I,L,M)
+       TREF2(I) = TREF(I,L,M)
+    ENDDO
+
+    ! Apportion O3 and T on supplied climatology z* levels onto CTM levels
+    ! with mass (pressure) weighting, assuming constant mixing ratio and
+    ! temperature half a layer on either side of the point supplied.
+    DO I = 1, L1_
+       F0 = 0.e+0_fp
+       T0 = 0.e+0_fp
+       DO K = 1, 51
+          PC = MIN( P_CTM(I),   PSTD(K)   )
+          PB = MAX( P_CTM(I+1), PSTD(K+1) )
+          IF ( PC .GT. PB ) THEN
+             XC = ( PC - PB ) / ( P_CTM(I) - P_CTM(I+1) )
+             F0 = F0 + OREF2(K)*XC
+             T0 = T0 + TREF2(K)*XC
+          ENDIF
+       ENDDO
+       T_CLIM(I)  = T0
+       O3_CLIM(I) = F0 * 1.e-6_fp
+    ENDDO
+
+    !=================================================================
+    ! Calculate effective altitudes using scale height at each level
+    !=================================================================
+    Z_CLIM(1) = 0.e+0_fp
+    DO I = 1, L_
+       SCALEH = BOLTZ * 1.e+4_fp * MASFAC * T_CLIM(I)
+
+       Z_CLIM(I+1) = Z_CLIM(I) - ( LOG( P_CTM(I+1) / P_CTM(I) ) * SCALEH )
+    ENDDO
+    Z_CLIM(L1_+1)=Z_CLIM(L1_) + ZZHT
+
+    !=================================================================
+    ! Add Aerosol Column - include aerosol types here. Currently use
+    ! soot water and ice; assume black carbon x-section of 10 m2/g,
+    ! independent of wavelength; assume limiting temperature for
+    ! ice of -40 deg C.
+    !=================================================================
+    DO I = 1, L_
+       ! Turn off uniform black carbon profile (rvm, bmy, 2/27/02)
+       AERCOL(1,I) = 0e+0_fp
+
+       IF ( T_CTM(I) .GT. 233.e+0_fp ) THEN
+          AERCOL(2,I) = CLDOD(I)
+          AERCOL(3,I) = 0.e+0_fp
+       ELSE
+          AERCOL(2,I) = 0.e+0_fp
+          AERCOL(3,I) = CLDOD(I)
+       ENDIF
+
+       ! Also add in aerosol optical depth columns (rvm, bmy, 9/30/00)
+       DO N = 1, NDUST
+          AERCOL(3+N,I) = DSTOD(I,N)
+       ENDDO
+
+       ! Also add in other aerosol optical depth columns (rvm, bmy, 2/27/02)
+       DO N = 1, NAER*NRH
+          AERCOL(3+N+NDUST,I) = AEROD(I,N)
+       ENDDO
+
+    ENDDO
+
+    DO K = 1,(3+NDUST+(NAER))
+       AERCOL(K,L1_    ) = 0.e+0_fp
+    ENDDO
+
+    !=================================================================
+    ! Calculate column quantities for FAST-JX
+    !=================================================================
+    PROFCOL = 0e+0_fp
+
+    DO I = 1, L1_
+
+       ! Monthly mean air Column [molec/cm2]
+       AIR_CLIM(I)  = ( P_CTM(I) - P_CTM(I+1) ) * MASFAC
+
+       ! Monthly mean O3 column [molec/cm2]
+       O3_CLIM(I) = O3_CLIM(I) * AIR_CLIM(I)
+
+       ! Monthly mean O3 column [DU]
+       PROFCOL = PROFCOL + ( O3_CLIM(I) / 2.69e+16_fp )
+    ENDDO
+
+    !! Top values are special (do not exist in CTM data)
+    !AIR_CLIM(L1_)     = P_CTM(L1_) * MASFAC
+    !O3_CLIM(L1_) = O3_CLIM(L1_) * AIR_CLIM(L1_)
+
+    !=================================================================
+    ! Now weight the O3 column by the observed monthly mean TOMS.
+    ! Missing data is denoted by the flag -999. (mje, bmy, 7/15/03)
+    !
+    ! TOMS/SBUV MERGED TOTAL OZONE DATA, Version 8, Revision 3.
+    ! Resolution:  5 x 10 deg.
+    !
+    ! Methodology (bmy, 2/12/07)
+    ! ----------------------------------------------------------------
+    ! FAST-J comes with its own default O3 column climatology (from
+    ! McPeters 1992 & Nagatani 1991), which is stored in the input
+    ! file "jv_atms.dat".  These "FAST-J default" O3 columns are used
+    ! in the computation of the actinic flux and other optical
+    ! quantities for the FAST-J photolysis.
+    !
+    ! The TOMS/SBUV O3 columns and 1/2-monthly O3 trends (contained
+    ! in the TOMS_200701 directory) are read into GEOS-Chem by routine
+    ! READ_TOMS in "toms_mod.f".  Missing values (i.e. locations where
+    ! there are no data) in the TOMS/SBUV O3 columns are defined by
+    ! the flag -999.
+    !
+    ! After being read from disk in routine READ_TOMS, the TOMS/SBUV
+    ! O3 data are then passed to the FAST-J routine "set_prof.f".  In
+    ! "set_prof.f", a test is done to make sure that the TOMS/SBUV O3
+    ! columns and 1/2-monthly trends do not have any missing values
+    ! for (lat,lon) location for the given month.  If so, then the
+    ! TOMS/SBUV O3 column data is interpolated to the current day and
+    ! is used to weight the "FAST-J default" O3 column.  This
+    ! essentially "forces" the "FAST-J default" O3 column values to
+    ! better match the observations, as defined by TOMS/SBUV.
+    !
+    ! If there are no TOMS/SBUV O3 columns (and 1/2-monthly trends)
+    ! at a (lat,lon) location for given month, then FAST-J will revert
+    ! to its own "default" climatology for that location and month.
+    ! Therefore, the TOMS O3 can be thought of as an  "overlay" data
+    ! -- it is only used if it exists.
+    !
+    ! Note that there are no TOMS/SBUV O3 columns at the higher
+    ! latitudes.  At these latitudes, the code will revert to using
+    ! the "FAST-J default" O3 columns.
+    !
+    ! As of February 2007, we have TOMS/SBUV data for 1979 thru 2005.
+    ! 2006 TOMS/SBUV data is incomplete as of this writing.  For years
+    ! 2006 and onward, we use 2005 TOMS O3 columns.
+    !
+    ! This methodology was originally adopted by Mat Evans.  Symeon
+    ! Koumoutsaris was responsible for creating the downloading and
+    ! processing the TOMS O3 data files from 1979 thru 2005 in the
+    ! TOMS_200701 directory.
+    !=================================================================
+
+    ! Since we now have stratospheric ozone calculated online, use
+    ! this instead of archived profiles for all chemistry-grid cells
+    ! The variable O3_CTM is obtained from State_Met%Species, and will be 0
+    ! outside the chemgrid (in which case we use climatology)
+
+    ! Scale monthly O3 profile to the daily O3 profile (if available)
+    DO I = 1, L1_
+
+       ! Use online O3 values in the chemistry grid if selected
+       IF ( (USE_ONLINE_O3) .and. &
+            (I <= State_Grid%MaxChemLev) .and. &
+            (O3_CTM(I) > 0e+0_fp) ) THEN
+
+          ! Convert from molec/cm3 to molec/cm2
+          O3_CLIM(I) = O3_CTM(I) * (Z_CLIM(I+1)-Z_CLIM(I))
+
+       ! Otherwise, use O3 values from the met fields or TOMS/SBUV
+       ELSEIF (O3_TOMS > 0e+0_fp) THEN
+
+          O3_CLIM(I) = O3_CLIM(I) * ( O3_TOMS / PROFCOL )
+
+       ENDIF
+
+    ENDDO
+
+  END SUBROUTINE SET_PROF
+!EOC
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
+! !IROUTINE: set_aer
+!
+! !DESCRIPTION: Subroutine SET\_AER fills out the array MIEDX.
+!  Each entry connects a GEOS-Chem aerosol to its Fast-JX counterpart:
+!  MIEDX(Fast-JX index) = (GC index)
+!\\
+!\\
+! !INTERFACE:
+!
+  SUBROUTINE SET_AER( Input_Opt )
+!
+! !USES:
+!
+    USE CMN_FastJX_Mod
+    USE CMN_SIZE_Mod,  ONLY : NRHAER, NRH
+    USE Input_Opt_Mod, ONLY : OptInput
+!
+! !INPUT PARAMETERS:
+!
+    TYPE(OptInput), INTENT(IN) :: Input_Opt ! Input options
+!
+! !REVISION HISTORY:
+!  31 Mar 2013 - S. D. Eastham - Adapted from J. Mao FJX v6.2 implementation
+!  See https://github.com/geoschem/geos-chem for complete history
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES:
+!
+    INTEGER               :: I, J, K
+    INTEGER               :: IND(NRHAER)
+
+    !=================================================================
+    ! SER_AER begins here!
+    !=================================================================
+
+    ! Taken from aerosol_mod.F
+    IND = (/22,29,36,43,50/)
+
+    DO I=1,AN_
+       MIEDX(I) = 0
+    ENDDO
+
+    ! Select Aerosol/Cloud types to be used - define types here
+    ! Each of these types must be listed in the order used by OPMIE.F
+
+    ! Clouds
+    MIEDX(1)  =  3   !  Black carbon absorber
+    MIEDX(2)  = 10   !  Water Cloud (Deirmenjian 8 micron)
+    MIEDX(3)  = 14   !  Irregular Ice Cloud (Mishchenko)
+
+    ! Dust
+    MIEDX(4)  = 15   !  Mineral Dust  .15 micron    (rvm, 9/30/00)
+    MIEDX(5)  = 16   !  Mineral Dust  .25 micron    (rvm, 9/30/00)
+    MIEDX(6)  = 17   !  Mineral Dust  .4  micron    (rvm, 9/30/00)
+    MIEDX(7)  = 18   !  Mineral Dust  .8  micron    (rvm, 9/30/00)
+    MIEDX(8)  = 19   !  Mineral Dust 1.5  micron    (rvm, 9/30/00)
+    MIEDX(9)  = 20   !  Mineral Dust 2.5  micron    (rvm, 9/30/00)
+    MIEDX(10) = 21   !  Mineral Dust 4.0  micron    (rvm, 9/30/00)
+
+    ! Aerosols
+    DO I=1,NRHAER
+       DO J=1,NRH
+          MIEDX(10+((I-1)*NRH)+J)=IND(I)+J-1
+       ENDDO
+    ENDDO
+
+    ! Stratospheric aerosols - SSA/STS and solid PSCs
+    MIEDX(10+(NRHAER*NRH)+1) = 4  ! SSA/LBS/STS
+    MIEDX(10+(NRHAER*NRH)+2) = 14 ! NAT/ice PSCs
+
+    ! Ensure all 'AN_' types are valid selections
+    do i=1,AN_
+       IF (Input_Opt%amIRoot) write(6,1000) MIEDX(i),TITLAA(MIEDX(i))
+       if (MIEDX(i).gt.NAA.or.MIEDX(i).le.0) then
+          if (Input_Opt%amIRoot) then
+             write(6,1200) MIEDX(i),NAA
+          endif
+          CALL GC_EXITC('Bad MIEDX value.')
+       endif
+    enddo
+
+1000 format('Using Aerosol type: ',i3,1x,a)
+1200 format('Aerosol type ',i3,' unsuitable; supplied values must be ', &
+            'between 1 and ',i3)
+
+  END SUBROUTINE SET_AER
 !EOC
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !

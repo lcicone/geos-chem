@@ -8,6 +8,8 @@ add_library(Headers
   charpak_mod.F90
   CMN_DIAG_mod.F90
   CMN_FJX_MOD.F90
+  CMN_FastJX_mod.F90
+  CMN_Phot_mod.F90
   CMN_O3_mod.F90
   CMN_SIZE_mod.F90
   diaglist_mod.F90

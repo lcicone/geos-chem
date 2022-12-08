@@ -228,12 +228,7 @@ CONTAINS
     USE inquireMod,           ONLY : findFreeLUN
     USE FILE_MOD,             ONLY : IOERROR
 #if defined( MODEL_GEOS )
-#ifdef CLOUDJ
-    USE Cldj_CMN_Mod
-    ! Not yet sure what is used
-#else
-    USE CMN_FJX_MOD
-#endif
+    USE CMN_Phot_Mod
     USE GCKPP_Monitor
     USE GCKPP_Parameters
     USE Precision_Mod

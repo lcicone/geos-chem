@@ -76,6 +76,7 @@ MODULE Photol_Obj_Mod
      REAL(fp) :: ZZHT      ! Scale height [cm]
      REAL(fp) :: RAD       ! Radius of Earth [cm]
      REAL(fp) :: ATAU      ! Heating rate (factor increase between levels)
+     REAL(fp) :: ATAU0     ! Minimum heating rate
 
      ! Scalar set outside of this module
      INTEGER  :: NRATJ     ! # photolysis rxns in chemistry (.LE. JVN_)
@@ -91,6 +92,8 @@ MODULE Photol_Obj_Mod
      REAL(fp), ALLOCATABLE :: QRAYL  (:)   ! Rayleigh params (eff Xs) [cm2]
      REAL(fp), ALLOCATABLE :: EMU    (:)   ! 4 Gauss pts ??
      REAL(fp), ALLOCATABLE :: WT     (:)   ! 4 Gauss pts ??
+     REAL(fp), ALLOCATABLE :: JFACTA (:)   ! Multiplication factor for J-values
+     REAL(fp), ALLOCATABLE :: JLABEL (:)   ! J-value label in main chem model
      REAL(fp), ALLOCATABLE :: SAA    (:,:) ! Single scattering albedo
      REAL(fp), ALLOCATABLE :: QAA    (:,:) ! Aerosol scatting phase fnctns
      REAL(fp), ALLOCATABLE :: WAA    (:,:) ! WLa for supplied phase functions 
@@ -330,9 +333,10 @@ CONTAINS
     ! Real(fp) scalars
 
 !ewl: consider putting these in physconst if not already there
-    Photol%ZZHT = 5.e+5_fp    ! Scale height [cm]
-    Photol%RAD  = 6375.e+5_fp ! Radius of Earth [cm]
-    Photol%ATAU = 1.120e+0_fp ! Heating rate (factor increase between layers)
+    Photol%ZZHT  = 5.e+5_fp    ! Scale height [cm]
+    Photol%RAD   = 6375.e+5_fp ! Radius of Earth [cm]
+    Photol%ATAU  = 1.120e+0_fp ! Heating rate (factor increase between layers)
+    Photol%ATAU0 = 0.010e+0_fp ! Minimum heating rate
 
     ! Allocate arrays
     IF ( .not. Input_Opt%DryRun ) THEN
@@ -432,6 +436,24 @@ CONTAINS
           RETURN
        ENDIF
        Photol%WT = 0e+0_fp
+
+       ! Photol%JFACTA   (:)
+       ALLOCATE( Photol%JFACTA(Photol%JVN_), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array JFACTA!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%JFACTA = 0e+0_fp
+
+       ! Photol%JLABEL   (:)
+       ALLOCATE( Photol%JLABEL(Photol%JVN_), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array JLABEL!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%JLABEL = 0e+0_fp
 
        ! Photol%SAA     (:,:)
        ALLOCATE( Photol%SAA(5,Photol%A_), STAT=RC )
@@ -1071,6 +1093,7 @@ CONTAINS
        IF (ALLOCATED(Photol%FL            )) DEALLOCATE(Photol%FL            )
        IF (ALLOCATED(Photol%EMU           )) DEALLOCATE(Photol%EMU           )
        IF (ALLOCATED(Photol%WT            )) DEALLOCATE(Photol%WT            )
+       IF (ALLOCATED(Photol%JFACTA        )) DEALLOCATE(Photol%JFACTA        )
        IF (ALLOCATED(Photol%SAA           )) DEALLOCATE(Photol%SAA           )
        IF (ALLOCATED(Photol%QAA           )) DEALLOCATE(Photol%QAA           )
        IF (ALLOCATED(Photol%WAA           )) DEALLOCATE(Photol%WAA           )
