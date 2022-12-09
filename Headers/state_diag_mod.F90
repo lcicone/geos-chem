@@ -12351,7 +12351,6 @@ CONTAINS
 ! !USES:
 !
     USE ErrCode_Mod
-    USE CMN_FastJX_Mod, ONLY : W_
     USE State_Chm_Mod,  ONLY : ChmState
 !
 ! !INPUT PARAMETERS:
@@ -12429,7 +12428,7 @@ CONTAINS
        CASE( 'PHO',     'P' )
           numTags = State_Chm%nPhotol
        CASE( 'UVFLX',   'U' )
-          numTags = W_
+          numTags = State_Chm%Photol%nWLbins
        CASE( 'PRD',     'Y' )
           numTags = State_Chm%nProd
        CASE( 'RRTMG',   'Z' )

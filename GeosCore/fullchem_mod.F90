@@ -91,7 +91,6 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod,           ONLY : JVN_
     USE CMN_Phot_Mod,             ONLY : ZPJ, GC_PHOTO_ID
     USE ErrCode_Mod
     USE ERROR_MOD
@@ -582,7 +581,7 @@ CONTAINS
                              I, J, L,   SO4_FRAC,  IERR                     )
 
           ! Loop over the FAST-JX photolysis species
-          DO N = 1, JVN_
+          DO N = 1, State_Chm%Photol%nJvalMax
 
              IF ( DO_PHOTCHEM ) THEN
 
@@ -613,8 +612,8 @@ CONTAINS
              !    NOTE: For convenience, we have stored the GEOS-Chem
              !    photolysis species index (range: 1..State_Chm%nPhotol)
              !    for each of the FAST-JX photolysis species (range;
-             !    1..JVN_) in the GC_PHOTO_ID array (located in module
-             !    CMN_Phot_MOD.F90).
+             !    1..nJvalMax) in the GC_PHOTO_ID array (located in module
+             !    CMN_Photol_mod.F90). (ewl: revisit)
              !===============================================================
 
              ! GC photolysis species index

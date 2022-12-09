@@ -2150,7 +2150,6 @@ CONTAINS
 !
     USE GCKPP_Parameters, ONLY : NSPEC
     USE Input_Opt_Mod,    ONLY : OptInput
-    USE CMN_FastJX_Mod,   ONLY : W_
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
@@ -2313,8 +2312,8 @@ CONTAINS
        State_Chm%Map_WetDep = 0
     ENDIF
 
-    IF ( W_ > 0 ) THEN
-       ALLOCATE( State_Chm%Map_WL( W_ ), STAT=RC )
+    IF ( State_Chm%Photol%nWLbins > 0 ) THEN
+       ALLOCATE( State_Chm%Map_WL( State_Chm%Photol%nWLbins ), STAT=RC )
        CALL GC_CheckVar( 'State_Chm%Map_WL', 0, RC )
        IF ( RC /= GC_SUCCESS ) RETURN
        State_Chm%Map_WL = 0
@@ -2453,10 +2452,10 @@ CONTAINS
     ! Set up the mapping for UVFlux Diagnostics
     ! placeholder for now since couldn't figure out how to read in WL from file
     !------------------------------------------------------------------------
-    IF ( W_ > 0 ) THEN
+    IF ( State_Chm%Photol%nWLbins > 0 ) THEN
 
        ! Define identifying string
-       DO N = 1, W_
+       DO N = 1, State_Chm%Photol%nWLbins
           State_Chm%Map_WL(N) = 0
        ENDDO
     ENDIF

@@ -27,8 +27,8 @@ MODULE FJX_MOD
 !
 ! !PUBLIC MEMBER FUNCTIONS:
 !
-  PUBLIC :: PHOTO_JX  
-  PUBLIC :: SOLAR_JX  ! Previously called in Photo_JX but I am abstracting (ewl)
+  PUBLIC :: PHOTO_JX  ! Computes J-values  
+  PUBLIC :: SOLAR_JX  ! Computes solar zenith angle and solar function
   PUBLIC :: RD_MIE    ! Called in init_fjx
   PUBLIC :: RD_XXX    ! Called in init_fjx
   PUBLIC :: RD_JS_JX  ! Called in init_fjx
@@ -44,7 +44,7 @@ MODULE FJX_MOD
   PRIVATE :: BLKSLV    ! Called in MIESCT
   PRIVATE :: GEN_ID    ! Called in BLKSLV
   PRIVATE :: LEGND0    ! Called in MIESCT
-  PRIVATE :: EXITC     ! Now also have GC_EXITC in fjx_interface_gc_mod.F90
+  PRIVATE :: EXITC
 !
 ! !REVISION HISTORY:
 !  See https://github.com/geoschem/geos-chem for complete history
@@ -69,26 +69,28 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE PHOTO_JX( U0,        REFLB,      SZA,        SOLF,       &
+  SUBROUTINE PHOTO_JX( amIRoot,   dryrun,                             &
+                       U0,        REFLB,      SZA,        SOLF,       &
                        P_COL,     T_COL,      AOD999,     ILON,       &
                        ILAT,      AERX_COL,   T_CLIM,     OOJ,        &
-                       ZZJ,       DDJ,        Input_Opt,  State_Grid, &
-                       State_Met, State_Diag, VALJXX )
+                       ZZJ,       DDJ,        maxChemLev, VALJXX,     &
+                       FSBOT,     FJBOT,      FLXD,       FJFLX      )
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
-    USE CMN_Phot_Mod
+    USE CMN_FastJX_Mod, ONLY : L_, L1_, A_, N_, W_, X_
+    USE CMN_FastJX_Mod, ONLY : JXL_, JXL1_, JXL2_, JVN_
+    USE CMN_FastJX_Mod, ONLY : QO2, QO3, NJX, FL, WL, QRAYL
+    USE CMN_FastJX_Mod, ONLY : LQQ, TQQ, QAA, PAA, SAA 
+    USE CMN_Phot_Mod,   ONLY : NSPAA, MIEDX, QQAA, SSAA, PHAA ! aerosols
     USE CMN_SIZE_Mod,   ONLY : NRH, NRHAER
-    USE Input_Opt_Mod,  ONLY : OptInput
-    USE State_Diag_Mod, ONLY : DgnState
-    USE State_Grid_Mod, ONLY : GrdState
-    USE State_Met_Mod,  ONLY : MetState
 
     IMPLICIT NONE
 !
 ! !INPUT PARAMETERS:
 !
+    LOGICAL,  INTENT(IN)                      :: amIRoot
+    LOGICAL,  INTENT(IN)                      :: dryrun
     REAL(fp), INTENT(IN)                      :: U0,REFLB
     REAL(fp), INTENT(IN)                      :: SZA,SOLF
     REAL(fp), INTENT(IN), DIMENSION(L1_+1   ) :: P_COL
@@ -100,17 +102,18 @@ CONTAINS
     REAL(fp), INTENT(IN), DIMENSION(L1_   )   :: OOJ      ! O3 col depth (#/cm2)
     REAL(fp), INTENT(IN), DIMENSION(L1_+1 )   :: ZZJ      ! Edge alts (cm)
     REAL(fp), INTENT(IN), DIMENSION(L1_   )   :: DDJ
-    TYPE(OptInput), INTENT(IN)                :: Input_Opt
-    TYPE(GrdState), INTENT(IN)                :: State_Grid
-    TYPE(MetState), INTENT(IN)                :: State_Met
+    INTEGER,  INTENT(IN)                      :: maxChemLev
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
-    TYPE(DgnState), INTENT(INOUT)             :: State_Diag
 !
 ! OUTPUT PARAMETERS:
 !
-    REAL(fp), INTENT(OUT), DIMENSION(L_,JVN_) :: VALJXX
+    REAL(fp), INTENT(OUT), DIMENSION(L_,JVN_ ) :: VALJXX
+    REAL(fp), INTENT(OUT), DIMENSION(W_      ) :: FSBOT
+    REAL(fp), INTENT(OUT), DIMENSION(W_      ) :: FJBOT
+    REAL(fp), INTENT(OUT), DIMENSION(JXL1_,W_) :: FLXD
+    REAL(fp), INTENT(OUT), DIMENSION(JXL_,W_ ) :: FJFLX
 !
 ! !REMARKS:
 !
@@ -128,9 +131,12 @@ CONTAINS
     ! --these are dimensioned JXL_, and must have JXL_ .ge. State_Grid%NZ
     real(fp), dimension(JXL1_+1)    :: PPJ
     integer,dimension(JXL2_+1)      :: JXTRA
-    real(fp), dimension(W_)         :: FJTOP,FJBOT,FSBOT,FLXD0,RFL
-    real(fp), dimension(JXL_, W_)   :: AVGF, FJFLX
-    real(fp), dimension(JXL1_,W_)   :: DTAUX, FLXD
+    real(fp), dimension(W_)         :: FJTOP,FLXD0,RFL
+!    real(fp), dimension(W_)         :: FJBOT,FSBOT ! make output (ewl)
+    real(fp), dimension(JXL_, W_)   :: AVGF
+!    real(fp), dimension(JXL_, W_)   :: FJFLX ! make output (ewl)
+    real(fp), dimension(JXL1_,W_)   :: DTAUX
+!    real(fp), dimension(JXL1_,W_)   :: FLXD ! make output (ewl)
     real(fp), dimension(8,JXL1_,W_) :: POMEGAX
 
     ! flux/heating arrays (along with FJFLX,FLXD,FLXD0)
@@ -155,12 +161,6 @@ CONTAINS
 
     ! T_INPUT: Input temperature (K) with extra layer for compatibility
     REAL(fp) :: T_INPUT(JXL1_+1)
-
-    ! UVFlux* diagnostics
-    REAL(fp) :: FDIRECT (JXL1_)
-    REAL(fp) :: FDIFFUSE(JXL1_)
-    REAL(fp) :: UVX_CONST
-    INTEGER  :: S
 
     !Maps the new LUT optics wavelengths on to
     !the 5 jv_spec_mie.dat wavelengths
@@ -223,6 +223,12 @@ CONTAINS
     ! for RRTMG). Clouds, non-species aerosols and strat aerosols
     ! are not incorporated into the new LUT so must still use the
     ! old LUT for these.
+
+! ewl: The aerosols were added for GEOS-Chem (?) by Colette and Dave R.
+! ewl: QQAA, SSAA, and PHAA are read from file in Rd_AOD.
+! ewl: NSPAA is # species in LUT.
+! ewl: MIEDX is a mapping array set in Set_AER.
+! ewl: None of this is in Cloud-J
 
     ! Don't bother on extraneous level - leave as zero
     do L = 1,L_
@@ -341,7 +347,9 @@ CONTAINS
     ! Given the aerosol+cloud OD/layer in visible (600 nm) calculate how to add
     !  additonal levels at top of clouds (now uses log spacing)
     ! --------------------------------------------------------------------
-    call EXTRAL(Input_Opt,State_Diag,OD600,L1_,L2EDGE,N_,JXTRA,ILON,ILAT)
+!ewl: removing input_opt and state_diag for now (only used if MODEL_GEOS)
+!ewl    call EXTRAL(Input_Opt,State_Diag,OD600,L1_,L2EDGE,N_,JXTRA,ILON,ILAT)
+    call EXTRAL(OD600,L1_,L2EDGE,N_,JXTRA,ILON,ILAT)
     ! --------------------------------------------------------------------
 
     ! set surface reflectance
@@ -389,7 +397,7 @@ CONTAINS
        enddo
     enddo
     ! --------------------------------------------------------------------
-    LU = State_Grid%NZ
+    LU = L_
     call OPMIE(DTAUX,POMEGAX,U0,RFL,AMF2,JXTRA, &
                AVGF,FJTOP,FJBOT,FSBOT,FJFLX,FLXD,FLXD0,LU)
 
@@ -404,273 +412,7 @@ CONTAINS
     enddo
 
     ! Calculate photolysis rates
-    call JRATET(PPJ,T_INPUT,FFF, VALJXX,L_,State_Grid%MaxChemLev,NJX)
-
-
-! ewl: I think this block might be GEOS-Chem specific so could be moved out
-! ewl: The actual J-values output is VALJXX from JRATET. Same name in Cloud-J.
-! ewl: In cloud-J Photo_JX, VALJXX is an output array. In this one we use the
-!      ZPJ module variable instead. Change this to set in State_Chm%Photol%ZPJ
-    ! Fill out common-block array of J-rates
-    DO L=1,State_Grid%MaxChemLev
-       DO J=1,NRATJ
-          IF (JIND(J).gt.0) THEN
-             ZPJ(L,J,ILON,ILAT) = VALJXX(L,JIND(J))*JFACTA(J)
-          ELSE
-             ZPJ(L,J,ILON,ILAT) = 0.e+0_fp
-          ENDIF
-       ENDDO
-    ENDDO
-
-    ! Set J-rates outside the chemgrid to zero
-    IF (State_Grid%MaxChemLev.lt.L_) THEN
-       DO L=State_Grid%MaxChemLev+1,L_
-          DO J=1,NRATJ
-             ZPJ(L,J,ILON,ILAT) = 0.e+0_fp
-          ENDDO
-       ENDDO
-    ENDIF
-
-
-    ! ewl: The below code can be taken out of photo_jx, just need to
-    ! figure out what photo_jx outputs it needs...
-    ! (1) FSBOT
-    ! (2) FJBOT
-    ! (3) FLXD
-    ! (4) FJFLX
-    ! (5) SOLF
-    ! (6) FL
-    ! (7) UVXFACTOR
-    ! (8) UVX_CONST
-    !=================================================================
-    ! UV radiative fluxes (direct, diffuse, net) [W/m2]
-    !
-    ! Updated for netCDF from nd64 (JMM 2019-09-11)
-    ! Use it to calculate fluxes for output if necessary
-    !
-    ! Get net direct and net diffuse fluxes separately
-    ! Order:
-    !    1 - Net flux
-    !    2 - Direct flux
-    !    3 - Diffuse flux
-    ! Convention: negative is downwards
-    !=================================================================
-    IF ( State_Diag%Archive_UVFluxDiffuse .or. &
-         State_Diag%Archive_UVFluxDirect .or. &
-         State_Diag%Archive_UVFluxNet ) THEN
-
-       ! Loop over wavelength bins
-       DO K = 1, W_
-
-          ! Initialize
-          FDIRECT  = 0.0_fp
-          FDIFFUSE = 0.0_fp
-
-          ! Direct & diffuse fluxes at each level
-          FDIRECT(1)  = FSBOT(K)                    ! surface
-          FDIFFUSE(1) = FJBOT(K)                    ! surface
-          DO L = 2, State_Grid%NZ
-             FDIRECT(L) = FDIRECT(L-1) + FLXD(L-1,K)
-             FDIFFUSE(L) = FJFLX(L-1,K)
-          ENDDO
-
-          ! Constant to multiply UV fluxes at each wavelength bin
-          UVX_CONST = SOLF * FL(K) * UVXFACTOR(K)
-
-          ! Archive into diagnostic arrays
-          DO L = 1, State_Grid%NZ
-
-             IF ( State_Diag%Archive_UVFluxNet ) THEN
-                S = State_Diag%Map_UvFluxNet%id2slot(K)
-                IF ( S > 0 ) THEN
-                   State_Diag%UVFluxNet(ILON,ILAT,L,S) =                     &
-                   State_Diag%UVFluxNet(ILON,ILAT,L,S) +                     &
-                        ( ( FDIRECT(L) + FDIFFUSE(L) ) * UVX_CONST )
-                ENDIF
-             ENDIF
-
-             IF ( State_Diag%Archive_UVFluxDirect ) THEN
-                S = State_Diag%Map_UvFluxDirect%id2slot(K)
-                IF ( S > 0 ) THEN
-                   State_Diag%UVFluxDirect(ILON,ILAT,L,S) =                  &
-                   State_Diag%UVFluxDirect(ILON,ILAT,L,S) +                  &
-                        ( FDIRECT(L) * UVX_CONST )
-                ENDIF
-             ENDIF
-
-             IF ( State_Diag%Archive_UVFluxDiffuse ) THEN
-                S = State_Diag%Map_UvFluxDiffuse%id2slot(K)
-                IF ( S > 0 ) THEN
-                   State_Diag%UVFluxDiffuse(ILON,ILAT,L,S) =                 &
-                   State_Diag%UVFluxDiffuse(ILON,ILAT,L,S) +                 &
-                        ( FDIFFUSE(L) * UVX_CONST )
-                ENDIF
-             ENDIF
-          ENDDO
-       ENDDO
-    ENDIF
-
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-!%%% COMMENT OUT FAST-J DIAGNOSTICS FOR NOW (bmy, 3/5/14)
-!%%% LEAVE CODE HERE SO THAT IT CAN BE RESTORED
-!      !---------------------------------------------------------------
-!      ! Majority of heating code ignored by GEOS-Chem
-!      ! Everything from here until statement number 99 is ignored
-!      ! (SDE 03/31/13)
-!      !---------------------------------------------------------------
-!      IF (LFJXDIAG) THEN
-!         DO K=1,W_
-!! -direct(DIR) and diffuse(FLX) fluxes at top(UP) (solar = negative by convention)
-!! -     also at bottom (DN), does not include diffuse reflected flux.
-!            FLXUP(K) =  FJTOP(K)
-!            DIRUP(K) = -FLXD0(K)
-!            FLXDN(K) = -FJBOT(K)
-!            DIRDN(K) = -FSBOT(K)
-!
-!            FREFI = FREFI + SOLF*FL(K)*FLXD0(K)/WL(K)
-!            FREFL = FREFL + SOLF*FL(K)*FJTOP(K)/WL(K)
-!            FREFS = FREFS + SOLF*FL(K)/WL(K)
-!
-!! for each wavelength calculate the flux budget/heating rates:
-!c  FLXD(L) = direct flux deposited in layer L  [approx = MU0*(F(L+1) -F(L))]
-!c            but for spherical atmosphere!
-!c  FJFLX(L) = diffuse flux across top of layer L
-!
-!! calculate divergence of diffuse flux in each CTM layer (& t-o-a)
-!!      need special fix at top and bottom:
-!! FABOT = total abs at L.B. &  FXBOT = net diffusive flux at L.B.
-!            FABOT = (1.e+0_fp-RFL(K))*(FJBOT(K)+FSBOT(K))
-!            FXBOT = -FJBOT(K) + RFL(K)*(FJBOT(K)+FSBOT(K))
-!            FLXJ(1) = FJFLX(1,K) - FXBOT
-!            do L=2,LU
-!               FLXJ(L) = FJFLX(L,K) - FJFLX(L-1,K)
-!            enddo
-!            FLXJ(LU+1) = FJTOP(K) - FJFLX(LU,K)
-!! calculate net flux deposited in each CTM layer (direct & diffuse):
-!            FFX0 = 0.e+0_fp
-!            do L=1,L1U
-!               FFX(K,L) = FLXD(L,K) - FLXJ(L)
-!               FFX0 = FFX0 + FFX(K,L)
-!            enddo
-!
-!c  NB: the radiation level ABOVE the top CTM level is included in these budgets
-!c      these are the flux budget/heating terms for the column:
-!c  FFXNET(K,1) = FLXD0        direct(solar) flux dep into atmos (spherical)
-!c  FFXNET(K,2) = FSBOT        direct(solar) flux dep onto LB (surface)
-!c  FFXNET(K,3) = FLXD0+FSBOT  TOTAL solar into atmopshere+surface
-!c  FFXNET(K,4) = FJTOP        diffuse flux leaving top-of-atmos
-!c  FFXNET(K,5) = FFX0         diffuse flux absorbed in atmos
-!c  FFXNET(K,6) = FABOT        total (dir+dif) absorbed at LB (surface)
-!c       these are surface fluxes to compare direct vs. diffuse:
-!c  FFXNET(K,7) = FSBOT        direct flux dep onto LB (surface) - for srf diags
-!c  FFXNET(K,8) = FJBOT        diffuse flux dep onto LB (surface)
-!
-!            FFXNET(K,1) = FLXD0(K)
-!            FFXNET(K,2) = FSBOT(K)
-!            FFXNET(K,3) = FLXD0(K) + FSBOT(K)
-!            FFXNET(K,4) = FJTOP(K)
-!            FFXNET(K,5) = FFX0
-!            FFXNET(K,6) = FABOT
-!            FFXNET(K,7) = FSBOT(K)
-!            FFXNET(K,8) = FJBOT(K)
-!
-!! --------------------------------------------------------------------
-!         enddo       ! end loop over wavelength K
-!! --------------------------------------------------------------------
-!         FREFL = FREFL/FREFS      !calculate reflected flux (energy weighted)
-!         FREFI = FREFI/FREFS
-!
-!! NB UVB = 280-320 = bins 12:15, UVA = 320-400 = bins 16:17, VIS = bin 18 (++)
-!
-!
-!! mapping J-values from fast-JX onto CTM chemistry is done in main
-!
-!! --------------------------------------------------------------------
-!         if ((Input_Opt%amIRoot).and.(LPRTJ)) then
-!! diagnostics below are NOT returned to the CTM code
-!            write(6,*)'fast-JX-(7.0)---PHOTO_JX internal print:',
-!     &               ' Atmosphere---'
-!! used last called values of DTAUX and POMEGAX, should be 600 nm
-!         do L=1,L1U
-!            DTAU600(L) = DTAUX(L,W_)
-!            do I=1,8
-!               POMG600(I,L) = POMEGAX(I,L,W_)
-!            enddo
-!         enddo
-!
-!      !   call JP_ATM(PPJ,TTJ,DDJ,OOJ,ZZJ,DTAU600,POMG600,JXTRA, LU)
-!
-!! PRINT SUMMARY of mean intensity, flux, heating rates:
-!         if (Input_Opt%amIRoot) then
-!            write(6,*)
-!            write(6,*)'fast-JX(7.0)---PHOTO_JX internal print:',
-!     &               ' Mean Intens---'
-!            write(6,'(a,5f10.4)')
-!     &       ' SUMMARY fast-JX: albedo/SZA/u0/F-incd/F-refl/',
-!     &        RFLECT,SZA,U0,FREFI,FREFL
-!
-!            write(6,'(a5,18i8)')   ' bin:',(K, K=NW2,NW1,-1)
-!            write(6,'(a5,18f8.1)') ' wvl:',(WL(K), K=NW2,NW1,-1)
-!            write(6,'(a,a)') ' ----  100000=Fsolar   ',
-!     &                  'MEAN INTENSITY per wvl bin'
-!         endif
-!         do L = LU,1,-1
-!            do K=NW1,NW2
-!               RATIO(K) = (1.d5*FFF(K,L)/FL(K))
-!            enddo
-!            if (Input_Opt%amIRoot) then
-!               write(6,'(i3,2x,18i8)') L,(RATIO(K),K=NW2,NW1,-1)
-!            endif
-!         enddo
-!
-!         if (Input_Opt%amIRoot) then
-!            write(6,*)
-!            write(6,*)'fast-JX(7.0)---PHOTO_JX internal print:',
-!                              ' Net Fluxes---'
-!            write(6,'(a11,18i8)')   ' bin:',(K, K=NW2,NW1,-1)
-!            write(6,'(a11,18f8.1)') ' wvl:',(WL(K), K=NW2,NW1,-1)
-!c            write(6,'(a11,18f8.4)') ' sol in atm',(FFXNET(K,1),
-!c     &                        K=NW2,NW1,-1)
-!c            write(6,'(a11,18f8.4)') ' sol at srf',(FFXNET(K,2),
-!c     &                        K=NW2,NW1,-1)
-!            write(6,*) ' ---NET FLUXES--- '
-!            write(6,'(a11,18f8.4)') ' sol TOTAL ',(FFXNET(K,3),
-!     &                        K=NW2,NW1,-1)
-!            write(6,'(a11,18f8.4)') ' dif outtop',(FFXNET(K,4),
-!     &                        K=NW2,NW1,-1)
-!            write(6,'(a11,18f8.4)') ' abs in atm',(FFXNET(K,5),
-!     &                        K=NW2,NW1,-1)
-!            write(6,'(a11,18f8.4)') ' abs at srf',(FFXNET(K,6),
-!     &                        K=NW2,NW1,-1)
-!            write(6,*) ' ---SRF FLUXES--- '
-!            write(6,'(a11,18f8.4)') ' srf direct',(FFXNET(K,7),
-!     &                        K=NW2,NW1,-1)
-!            write(6,'(a11,18f8.4)') ' srf diffus',(FFXNET(K,8),
-!     &                        K=NW2,NW1,-1)
-!            write(6,'(4a)') '  ---NET ABS per layer:',
-!     &         '       10000=Fsolar',
-!     &         '  [NB: values <0 = numerical error w/clouds',
-!     &         ' or SZA>90, colm OK]'
-!         endif
-!         do L = LU,1,-1
-!            do K=NW1,NW2
-!               RATIO(K) = 1.d5*FFX(K,L)
-!            enddo
-!            if (Input_Opt%amIRoot) then
-!               write(6,'(i9,2x,18i8)') L,(RATIO(K),K=NW2,NW1,-1)
-!            endif
-!         enddo
-!         if (Input_Opt%amIRoot) then
-!            write(6,'(a)')
-!            write(6,'(a)') ' fast-JX (7.0)----J-values----'
-!            write(6,'(1x,a,72(a6,3x))') 'L=  ',(TITLEJX(K), K=1,NJX)
-!            do L = LU,1,-1
-!              write(6,'(i3,1p, 72e9.2)') L,(VALJXX(L,K),K=1,NJX)
-!            enddo
-!         endif
-!
-!      ENDIF
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    call JRATET(PPJ,T_INPUT,FFF, VALJXX,L_,maxChemLev,NJX)
 
   END SUBROUTINE PHOTO_JX
 !EOC
@@ -690,8 +432,7 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
-    USE PhysConstants,ONLY : PI
+    USE PhysConstants, ONLY : PI
 !
 ! !INPUT PARAMETERS:
 !
@@ -747,19 +488,20 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE RD_MIE( NUN, NAMFIL, Input_Opt, RC )
+  SUBROUTINE RD_MIE( amIRoot, dryrun, LBRC, NUN, NAMFIL, RC )
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
+    USE CMN_FastJX_Mod, ONLY : TITLAA, NAA, PAA, QAA, RAA, SAA, WAA
     USE ErrCode_Mod
-    USE Input_Opt_Mod, ONLY : OptInput
 !
 ! !INPUT PARAMETERS:
 !
+    LOGICAL,        INTENT(IN)  :: amIRoot     ! On root thread?
+    LOGICAL,        INTENT(IN)  :: dryrun      ! Dry run to print inputs?
+    LOGICAL,        INTENT(IN)  :: LBRC        ! Brown carbon?
     INTEGER,        INTENT(IN)  :: NUN         ! Logical unit #
     CHARACTER(*),   INTENT(IN)  :: NAMFIL      ! File name
-    TYPE(OptInput), INTENT(IN)  :: Input_Opt   ! Input Options object
 !
 ! !OUTPUT PARAMETERS:
 !
@@ -788,7 +530,7 @@ CONTAINS
 !
     ! Scalars
     INTEGER            :: I, J, K, NK
-    LOGICAL            :: LBRC, FileExists
+    LOGICAL            :: FileExists
 
     ! Strings
     CHARACTER(LEN=78 ) :: TITLE0
@@ -815,14 +557,14 @@ CONTAINS
     ENDIF
 
     ! Write to stdout for both regular and dry-run simulations
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
        WRITE( 6, 300 ) TRIM( FileMsg ), TRIM( NamFil )
 300    FORMAT( a, ' ', a )
     ENDIF
 
     ! For dry-run simulations, return to calling program
     ! For regular simulations, throw an error if we can't find the file.
-    IF ( Input_Opt%DryRun ) THEN
+    IF ( dryrun ) THEN
        RETURN
     ELSE
        IF ( .not. FileExists ) THEN
@@ -836,12 +578,9 @@ CONTAINS
     ! RD_MIE begins here -- read data from file
     !=================================================================
 
-    ! Copy fields from Input_Opt
-    LBRC = Input_Opt%LBRC
-
 #if defined( MODEL_CESM )
     ! Only read file on root thread if using CESM
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
 #endif
 
     ! Open file
@@ -849,7 +588,7 @@ CONTAINS
 
     ! Read header lines
     READ( NUN,'(A)' ) TITLE0
-    IF  ( Input_Opt%AmIRoot ) WRITE( 6, '(1X,A)' ) TITLE0
+    IF  ( amIRoot ) WRITE( 6, '(1X,A)' ) TITLE0
     READ( NUN,'(A)' ) TITLE0
 
     !---Read aerosol phase functions:
@@ -895,7 +634,7 @@ CONTAINS
 #endif
 #endif
 
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
        write(6,'(a,9f8.1)') ' Aerosol optical: r-eff/rho/Q(@wavel):', &
                             (WAA(K,1),K=1,5)
        do J=1,NAA
@@ -922,20 +661,21 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE RD_XXX ( NUN, NAMFIL, Input_Opt, RC )
+  SUBROUTINE RD_XXX ( amIRoot, dryrun, NUN, NAMFIL, RC )
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
-    USE CMN_Phot_Mod
+    USE CMN_FastJX_Mod, ONLY : W_, WX_, X_, NJX, NW1, NW2
+    USE CMN_FastJX_Mod, ONLY : TITLEJX, WL, FL, QRAYL, QO2, QO3, Q1D
+    USE CMN_FastJX_Mod, ONLY : LQQ, QQQ, SQQ, TQQ
     USE ErrCode_Mod
-    USE Input_Opt_Mod, ONLY : OptInput
 !
 ! !INPUT PARAMETERS:
 !
+    LOGICAL,        INTENT(IN)  :: amIRoot
+    LOGICAL,        INTENT(IN)  :: dryrun
     INTEGER,        INTENT(IN)  :: NUN
     CHARACTER(*),   INTENT(IN)  :: NAMFIL
-    TYPE(OptInput), INTENT(IN)  :: Input_Opt
 !
 ! !OUTPUT PARAMETERS:
 !
@@ -1014,14 +754,14 @@ CONTAINS
     ENDIF
 
     ! Write to stdout for both regular and dry-run simulations
-    IF ( Input_Opt%AmIRoot ) THEN
+    IF ( amIRoot ) THEN
        WRITE( 6, 300 ) TRIM( FileMsg ), TRIM( NamFil )
 300    FORMAT( a, ' ', a )
     ENDIF
 
     ! For dry-run simulations, return to calling program.
     ! For regular simulations, throw an error if we can't find the file.
-    IF ( Input_Opt%DryRun ) THEN
+    IF ( dryrun ) THEN
        RETURN
     ELSE
        IF ( .not. FileExists ) THEN
@@ -1046,7 +786,7 @@ CONTAINS
 
 #if defined( MODEL_CESM )
     ! Only read file on root thread if using CESM
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
 #endif
 
     ! Open file
@@ -1057,7 +797,7 @@ CONTAINS
     read (NUN,101) NQRD,NWWW
     NW1 = 1
     NW2 = NWWW
-    IF ( Input_Opt%AmIRoot ) THEN
+    IF ( amIRoot ) THEN
        write(6,'(1x,a)') TITLE0
        write(6,'(i8)') NWWW
     ENDIF
@@ -1129,7 +869,7 @@ CONTAINS
     NJX = JJ
 
     do J = 1,NJX
-       if ( Input_Opt%AmIRoot ) then
+       if ( amIRoot ) then
           write(6,200) J,TITLEJX(J),SQQ(J),LQQ(J),(TQQ(I,J),I=1,LQQ(J))
        endif
        ! need to check that TQQ is monotonically increasing:
@@ -1156,7 +896,7 @@ CONTAINS
     if (W_ .ne. WX_) then
        ! TROP-ONLY
        if (W_ .eq. 12) then
-          if ( Input_Opt%AmIRoot ) then
+          if ( amIRoot ) then
              write(6,'(a)') &
                   ' >>>TROP-ONLY reduce wavelengths to 12, drop strat X-sects'
           endif
@@ -1193,7 +933,7 @@ CONTAINS
           enddo
           ! TROP-QUICK  (must scale solar flux for W=5)
        elseif (W_ .eq. 8) then
-          if ( Input_Opt%amIRoot ) then
+          if ( amIRoot ) then
              write(6,'(a)') &
                   ' >>>TROP-QUICK reduce wavelengths to 8, drop strat X-sects'
           endif
@@ -1285,23 +1025,23 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE RD_JS_JX( NUNIT, NAMFIL, TITLEJX, NJXX, Input_Opt, RC )
+  SUBROUTINE RD_JS_JX( amIRoot, dryrun, NUNIT, NAMFIL, TITLEJX, NJXX, RC )
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod, ONLY : JLABEL, M2_, JVN_, NRATJ, JFACTA, JIND
-    USE CMN_Phot_Mod,   ONLY : BRANCH, RNAMES
+    USE CMN_FastJX_Mod, ONLY : M2_, JVN_, JIND
+    USE CMN_FastJX_Mod, ONLY : JLABEL, JFACTA, NRATJ, BRANCH, RNAMES
     USE Charpak_Mod,    ONLY : CStrip
     USE ErrCode_Mod
-    USE Input_Opt_Mod,  ONLY : OptInput
 !
 ! !INPUT PARAMETERS:
 !
+    LOGICAL,          INTENT(IN)                  :: amIRoot
+    LOGICAL,          INTENT(IN)                  :: dryrun
     INTEGER,          INTENT(IN)                  :: NUNIT
     INTEGER,          INTENT(IN)                  :: NJXX
     CHARACTER(LEN=*), INTENT(IN)                  :: NAMFIL
     CHARACTER(LEN=6), INTENT(IN), DIMENSION(NJXX) :: TITLEJX
-    TYPE(OptInput),   INTENT(IN)                  :: Input_Opt
 !
 ! !OUTPUT PARAMETERS:
 !
@@ -1359,14 +1099,14 @@ CONTAINS
     ENDIF
 
     ! Write to stdout for both regular and dry-run simulations
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
        WRITE( 6, 300 ) TRIM( FileMsg ), TRIM( NamFil )
 300    FORMAT( a, ' ', a )
     ENDIF
 
     ! For dry-run simulations, return to calling program.
     ! For regular simulations, throw an error if we can't find the file.
-    IF ( Input_Opt%DryRun ) THEN
+    IF ( dryrun ) THEN
        RETURN
     ELSE
        IF ( .not. FileExists ) THEN
@@ -1390,14 +1130,14 @@ CONTAINS
 
 #if defined( MODEL_CESM )
     ! Only read file on root thread if using CESM
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
 #endif
 
     ! Open file
     open (NUNIT,file=NAMFIL,status='old',form='formatted')
 
     read (NUNIT,'(a)') CLINE
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
        write(6,'(a)') CLINE
     ENDIF
     do J = 1,JVN_
@@ -1458,13 +1198,13 @@ CONTAINS
        enddo
     enddo
 
-    IF ( Input_Opt%amIRoot ) THEN
+    IF ( amIRoot ) THEN
        write(6,'(a,i4,a)')'Photochemistry Scheme with',NRATJ,' J-values'
     ENDIF
     do K=1,NRATJ
        if (JMAP(K) .ne. '------' ) then
           J = JIND(K)
-          IF ( Input_Opt%amIRoot ) THEN
+          IF ( amIRoot ) THEN
              if (J.eq.0) then
                 write(6,'(i5,1x,a50,f6.3,a,1x,a6)') K,JLABEL(K),JFACTA(K), &
                      ' no mapping onto fast-JX',JMAP(K)
@@ -1475,247 +1215,6 @@ CONTAINS
           ENDIF
        endif
     enddo
-
-!!========================================================================
-!! Flag special reactions that will be later adjusted by
-!! routine PHOTRATE_ADJ (called from FlexChem)
-!!========================================================================
-!
-!IF ( Input_Opt%ITS_A_FULLCHEM_SIM ) THEN
-!   ! Loop over all photolysis reactions
-!   DO K = 1, NRATJ
-!
-!      ! Strip all blanks from the reactants and products list
-!      TEXT = JLABEL(K)
-!      CALL CSTRIP( TEXT )
-!
-!      !IF ( Input_Opt%amIRoot ) THEN
-!      !   WRITE(*,*) K, TRIM( TEXT )
-!      !ENDIF
-!
-!      ! Look for certain reactions
-!      SELECT CASE( TRIM( TEXT ) )
-!         CASE( 'O2PHOTONOO' )
-!            RXN_O2 = K                ! O2 + hv -> O + O
-!         CASE( 'O3PHOTONO2O' )
-!            RXN_O3_1 = K              ! O3 + hv -> O2 + O
-!         CASE( 'O3PHOTONO2O(1D)' )
-!            RXN_O3_2 = K              ! O3 + hv -> O2 + O(1D)
-!         CASE( 'SO4PHOTONSO2OHOH' )
-!            RXN_H2SO4 = K             ! SO4 + hv -> SO2 + OH + OH
-!         CASE( 'NO2PHOTONNOO' )
-!            RXN_NO2 = K               ! NO2 + hv -> NO + O
-!         CASE( 'NOPHOTONNO' )
-!            RXN_NO = K                ! NO + hv -> N + O
-!         CASE( 'NO3PHOTONNO2O' )
-!            RXN_NO3 = K               ! NO3 + hv -> NO2 + O
-!         CASE( 'N2OPHOTONN2O' )
-!            RXN_N2O = K               ! N2O + hv -> N2 + O
-!         CASE( 'NITsPHOTONHNO2' )
-!            RXN_JNITSa = K            ! NITs + hv -> HNO2
-!         CASE( 'NITsPHOTONNO2' )
-!            RXN_JNITSb = K            ! NITs + hv -> NO2
-!         CASE( 'NITPHOTONHNO2' )
-!            RXN_JNITa = K             ! NIT + hv -> HNO2
-!         CASE( 'NITPHOTONNO2' )
-!            RXN_JNITb = K             ! NIT + hv -> NO2
-!         CASE( 'HNO3PHOTONNO2OH' )
-!            RXN_JHNO3 = K             ! HNO3 + hv = OH + NO2
-!         CASE DEFAULT
-!            ! Nothing
-!      END SELECT
-!   ENDDO
-!
-!   !---------------------------------------------------------------------
-!   ! Error check the various rxn flags
-!   !---------------------------------------------------------------------
-!   IF ( RXN_O2 < 0 ) THEN
-!      ErrMsg = 'Could not find rxn O2 + hv -> O + O'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_O3_1 < 0 ) THEN
-!      ErrMsg = 'Could not find rxn O3 + hv -> O2 + O'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_O3_2 < 0 ) THEN
-!      ErrMsg = 'Could not find rxn O3 + hv -> O2 + O(1D)'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!   ENDIF
-!
-!   IF ( RXN_NO2 < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NO2 + hv -> NO + O'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_NO2 < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NO2 + hv -> NO + O'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_JNITSa < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NITS + hv -> HNO2'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_JNITSb < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NITS + hv -> NO2'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_JNITa < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NIT + hv -> HNO2'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_JNITb < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NIT + hv -> NO2'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_H2SO4  < 0 ) THEN
-!      ErrMsg = 'Could not find rxn SO4 + hv -> SO2 + OH + OH!'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_NO3 < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NO3 + hv -> NO2 + O'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_NO < 0 ) THEN
-!      ErrMsg = 'Could not find rxn NO + hv -> O + N'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   IF ( RXN_N2O < 0 ) THEN
-!      ErrMsg = 'Could not find rxn N2O + hv -> N2 + O(1D)'
-!      CALL GC_Error( ErrMsg, RC, ThisLoc )
-!      RETURN
-!   ENDIF
-!
-!   !---------------------------------------------------------------------
-!   ! Print out saved rxn flags for fullchem simulations
-!   !---------------------------------------------------------------------
-!   IF ( Input_Opt%amIRoot ) THEN
-!      WRITE( 6, 100 ) REPEAT( '=', 79 )
-!      WRITE( 6, 110 )
-!      WRITE( 6, 120 ) RXN_O2
-!      WRITE( 6, 130 ) RXN_O3_1
-!      WRITE( 6, 140 ) RXN_O3_2
-!      WRITE( 6, 180 ) RXN_JNITSa
-!      WRITE( 6, 190 ) RXN_JNITSb
-!      WRITE( 6, 200 ) RXN_JNITa
-!      WRITE( 6, 210 ) RXN_JNITb
-!      WRITE( 6, 160 ) RXN_H2SO4
-!      WRITE( 6, 170 ) RXN_NO2
-!      WRITE( 6, 100 ) REPEAT( '=', 79 )
-!   ENDIF
-!ENDIF
-!
-!!========================================================================
-!! Flag reactions for diagnostics (only in Hg chem)
-!!========================================================================
-!IF ( Input_Opt%ITS_A_MERCURY_SIM ) THEN
-!    ! Loop over all photolysis reactions
-!    DO K = 1, NRATJ
-!
-!       ! Strip all blanks from the reactants and products list
-!       TEXT = JLABEL(K)
-!       CALL CSTRIP( TEXT )
-!
-!       ! Look for certain reactions
-!       SELECT CASE( TRIM( TEXT ) )
-!          CASE( 'O3PHOTONO2O' )
-!             RXN_O3_1 = K             ! O3 + hv -> O2 + O
-!          CASE( 'O3PHOTONO2O(1D)' )
-!             RXN_O3_2 = K             ! O3 + hv -> O2 + O(1D)
-!          CASE( 'NO2PHOTONNOO' )
-!             RXN_NO2 = K              ! NO2 + hv -> NO + O
-!          CASE( 'BrOPHOTONBrO' )
-!             RXN_BrO = K              ! BrO + hv -> Br + O
-!          CASE( 'ClOPHOTONClO' )
-!             RXN_ClO = K              ! ClO + hv -> Cl + O
-!          CASE DEFAULT
-!             ! Nothing
-!       END SELECT
-!    ENDDO
-!
-!    !--------------------------------------------------------------------
-!    ! Error check the various rxn flags
-!    !--------------------------------------------------------------------
-!    IF ( RXN_O3_1 < 0 ) THEN
-!       ErrMsg = 'Could not find rxn O3 + hv -> O2 + O'
-!       CALL GC_Error( ErrMsg, RC, ThisLoc )
-!       RETURN
-!    ENDIF
-!
-!    IF ( RXN_O3_2 < 0 ) THEN
-!       ErrMsg = 'Could not find rxn O3 + hv -> O2 + O(1D) #1'
-!       CALL GC_Error( ErrMsg, RC, ThisLoc )
-!       RETURN
-!    ENDIF
-!
-!    IF ( RXN_NO2 < 0 ) THEN
-!       ErrMsg = 'Could not find rxn NO2 + hv -> NO + O'
-!       CALL GC_Error( ErrMsg, RC, ThisLoc )
-!       RETURN
-!    ENDIF
-!
-!    IF ( RXN_BrO < 0 ) THEN
-!       ErrMsg = 'Could not find rxn BrO + hv -> Br + O'
-!       CALL GC_Error( ErrMsg, RC, ThisLoc )
-!       RETURN
-!    ENDIF
-!
-!    IF ( RXN_ClO < 0 ) THEN
-!       ErrMsg = 'Could not find rxn ClO + hv -> Cl + O'
-!       CALL GC_Error( ErrMsg, RC, ThisLoc )
-!       RETURN
-!    ENDIF
-!
-!   !---------------------------------------------------------------------
-!   ! Print out saved rxn flags for Hg simulation
-!   !---------------------------------------------------------------------
-!   IF ( Input_Opt%amIRoot ) THEN
-!      WRITE( 6, 100 ) REPEAT( '=', 79 )
-!      WRITE( 6, 110 )
-!      WRITE( 6, 130 ) RXN_O3_1
-!      WRITE( 6, 140 ) RXN_O3_2
-!      WRITE( 6, 170 ) RXN_NO2
-!      WRITE( 6, 220 ) RXN_BrO
-!      WRITE( 6, 230 ) RXN_ClO
-!      WRITE( 6, 100 ) REPEAT( '=', 79 )
-!   ENDIF
-!ENDIF
-!
-!! FORMAT statements
-!FORMAT( a                                                 )
-!FORMAT( 'Photo rxn flags saved for use in PHOTRATE_ADJ:', / )
-!FORMAT( 'RXN_O2     [ O2   + hv -> O + O         ]  =  ', i5 )
-!FORMAT( 'RXN_O3_1   [ O3   + hv -> O2 + O        ]  =  ', i5 )
-!FORMAT( 'RXN_O3_2a  [ O3   + hv -> O2 + O(1D) #1 ]  =  ', i5 )
-!FORMAT( 'RXN_O3_2b  [ O3   + hv -> O2 + O(1D) #2 ]  =  ', i5 )
-!FORMAT( 'RXN_H2SO4  [ SO4  + hv -> SO2 + OH + OH ]  =  ', i5 )
-!FORMAT( 'RXN_NO2    [ NO2  + hv -> NO + O        ]  =  ', i5 )
-!FORMAT( 'RXN_JNITSa [ NITS + hv -> HNO2          ]  =  ', i5 )
-!FORMAT( 'RXN_JNITSb [ NITS + hv -> NO2           ]  =  ', i5 )
-!FORMAT( 'RXN_JNITa  [ NIT  + hv -> HNO2          ]  =  ', i5 )
-!FORMAT( 'RXN_JNITb  [ NIT  + hv -> NO2           ]  =  ', i5 )
-!FORMAT( 'RXN_BrO    [ BrO  + hv -> Br + O        ]  =  ', i5 )
-!FORMAT( 'RXN_ClO    [ ClO  + hv -> Cl + O        ]  =  ', i5 )
 
   END SUBROUTINE RD_JS_JX
 !EOC
@@ -2043,8 +1542,6 @@ CONTAINS
 ! !USES:
 ! 
     USE CMN_FastJX_Mod, ONLY : W_, WT, EMU, M_, M2_, N_
-    USE Input_Opt_Mod,  ONLY : OptInput
-    USE State_Diag_Mod, ONLY : DgnState
 !
 ! !INPUT PARAMETERS:
 !
@@ -2297,8 +1794,8 @@ CONTAINS
 !
 ! !USES:
 !
-  USE CMN_FastJX_Mod
-  USE CMN_Phot_Mod
+  USE CMN_FastJX_Mod, ONLY : JXL1_, W_, NJX, X_, LQQ, QQQ, SQQ, TQQ
+  USE CMN_FastJX_Mod, ONLY : QO2, QO3, Q1D
 !
 ! !INPUT PARAMETERS:
 !
@@ -2395,6 +1892,7 @@ CONTAINS
 
     enddo
 
+!ewl: I think we need to implement an equivalent chem threshold into cloud-j
     ! Zero non-chemistry layers
     if (LCHEM.lt.LCTM) then
        do L=(LCTM+1),LCHEM
@@ -2423,7 +1921,6 @@ CONTAINS
 !
 ! !USES:
 !
-  USE CMN_FastJX_Mod
 !
 ! !INPUT PARAMETERS:
 !
@@ -2640,18 +2137,19 @@ CONTAINS
 !\\
 ! !INTERFACE:
 !
-  SUBROUTINE EXTRAL (Input_Opt,State_Diag,DTAUX,L1X,L2X,NX,JXTRA,ILON,ILAT)
+!ewl  SUBROUTINE EXTRAL (Input_Opt,State_Diag,DTAUX,L1X,L2X,NX,JXTRA,ILON,ILAT)
+  SUBROUTINE EXTRAL (DTAUX,L1X,L2X,NX,JXTRA,ILON,ILAT)
 !
 ! !USES:
 !
     USE CMN_FastJX_Mod, ONLY : ATAU, ATAU0, JTAUMX
-    USE Input_Opt_Mod,  ONLY : OptInput
-    USE State_Diag_Mod, ONLY : DgnState
+!ewl    USE Input_Opt_Mod,  ONLY : OptInput
+!ewl    USE State_Diag_Mod, ONLY : DgnState
 !
 !
 ! !INPUT PARAMETERS:
 !
-    TYPE(OptInput), INTENT(IN) :: Input_Opt   ! Input options
+!ewl    TYPE(OptInput), INTENT(IN) :: Input_Opt   ! Input options
     INTEGER,        INTENT(IN) :: L1X,L2X     !index of cloud/aerosol
     integer,        intent(in) :: NX          !Mie scattering array size
     real(fp),       intent(in) :: DTAUX(L1X)  !cloud+3aerosol OD in each layer
@@ -2659,7 +2157,7 @@ CONTAINS
 !
 ! !INPUT/OUTPUT PARAMETERS:
 !
-    TYPE(DgnState), INTENT(INOUT) :: State_Diag  ! Diagnostics State object
+!ewl    TYPE(DgnState), INTENT(INOUT) :: State_Diag  ! Diagnostics State object
 !
 ! !OUTPUT VARIABLES:
 !
@@ -2701,19 +2199,20 @@ CONTAINS
     ! EXTRAL begins here!
     !=================================================================
 
-#ifdef MODEL_GEOS
-    ! This routine now repeats the extra layer computation with an
-    ! increased heating rate (ATAU) if there is an array overfloat.
-    ! This is repeated maximum 5 times. The diagnostics arrays
-    ! EXTRAL_NLEVS and EXTRAL_NITER archive the number of extra layers
-    ! and the number of iterations needed to converge to that solution.
-    ! Ideally, NITER is 1 and no adjustments to the heating rate are
-    ! needed (ckeller, 5/22/18).
-    NMAX = MAX(1,Input_Opt%FJX_EXTRAL_ITERMAX)
-    DO N=1,NMAX
-       ! local heating rate
-       ATAULOC = ATAU + (0.06*(N-1))
-#endif
+!ewl: comment out MODEL_GEOS code for now to remove state dependencies
+!#ifdef MODEL_GEOS
+!    ! This routine now repeats the extra layer computation with an
+!    ! increased heating rate (ATAU) if there is an array overfloat.
+!    ! This is repeated maximum 5 times. The diagnostics arrays
+!    ! EXTRAL_NLEVS and EXTRAL_NITER archive the number of extra layers
+!    ! and the number of iterations needed to converge to that solution.
+!    ! Ideally, NITER is 1 and no adjustments to the heating rate are
+!    ! needed (ckeller, 5/22/18).
+!    NMAX = MAX(1,Input_Opt%FJX_EXTRAL_ITERMAX)
+!    DO N=1,NMAX
+!       ! local heating rate
+!       ATAULOC = ATAU + (0.06*(N-1))
+!#endif
 
        ! Reinitialize arrays
        TTAU(:)  = 0.e+0_fp

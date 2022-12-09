@@ -44,14 +44,17 @@ MODULE Photol_Obj_Mod
      ! in cloud-j.
 
      !---------------------------------------------------
-     ! Fields that are also defined in Cloud-J
+     ! Fields that are also defined in Fast-JX or Cloud-J
+     ! (currently in CMN_FastJx_Mod)
      !---------------------------------------------------
 
-     ! Scalars used to allocate array sizes
-     INTEGER  :: JVN_      ! Max # J-values
+     ! Renamed for clarity
+     INTEGER  :: nJvalMax  ! Max # J-values (JVN_ in Fast-JX/Cloud-J)
+     INTEGER  :: nWLbins   ! # WL bins (W_ in Fast-JX/Cloud-J)
+
+     ! Other scalars used to allocate array sizes
      INTEGER  :: AN_       ! Number of separate aerosols per layer
      INTEGER  :: WX_       ! # WLs in input file
-     INTEGER  :: W_        ! # WL bins
      INTEGER  :: M_        ! # Gaussian points used (must be 4 in Fast-JX)
      INTEGER  :: A_        ! # input aerosol/cloud Mie data sets
 
@@ -82,8 +85,11 @@ MODULE Photol_Obj_Mod
      INTEGER  :: NRATJ     ! # photolysis rxns in chemistry (.LE. JVN_)
 
      ! Arrays
-     CHARACTER(LEN=6), ALLOCATABLE :: TITLEJX(:)   ! Input cross sections title
-     CHARACTER(LEN=1), ALLOCATABLE :: SQQ    (:)   ! Input cross sections flag
+     CHARACTER(LEN=6),  ALLOCATABLE :: TITLEJX(:) ! Input cross sections title
+     CHARACTER(LEN=1),  ALLOCATABLE :: SQQ    (:) ! Input cross sections flag
+     CHARACTER(LEN=10), ALLOCATABLE :: RNAMES(:)  ! Photolysis spc names
+     CHARACTER(LEN=80), ALLOCATABLE :: TITLAA(:)  ! Scattering data title 
+     INTEGER,  ALLOCATABLE :: BRANCH (:)   ! Photolysis spc branches
      INTEGER,  ALLOCATABLE :: JIND   (:)   ! Index mapping J-values onto rates
      REAL(fp), ALLOCATABLE :: LQQ    (:)   ! Categorical interpolation options
      REAL(fp), ALLOCATABLE :: WBIN   (:)   ! Boundaries of WL bins
@@ -101,6 +107,8 @@ MODULE Photol_Obj_Mod
      REAL(fp), ALLOCATABLE :: QO2    (:,:) ! O2 X-sections
      REAL(fp), ALLOCATABLE :: QO3    (:,:) ! O3 X-sections
      REAL(fp), ALLOCATABLE :: Q1D    (:,:) ! O3 => O(1D) quantum yield
+     REAL(fp), ALLOCATABLE :: TQQ    (:,:) ! Temp for X-sections
+     REAL(fp), ALLOCATABLE :: QQQ    (:,:,:) ! Xs in each WL bin [cm2]
      REAL(fp), ALLOCATABLE :: PAA    (:,:,:) ! Phase fnctn (first 8 terms)
 
      !--------------------------------------------------
@@ -129,10 +137,6 @@ MODULE Photol_Obj_Mod
      INTEGER  :: RXN_ClO     ! For Hg chem
 
      ! Arrays
-     CHARACTER(LEN=10), ALLOCATABLE :: RNAMES(:)  ! Photolysis spc names
-     CHARACTER(LEN=80), ALLOCATABLE :: TITLEAA(:) ! Scattering data title 
-
-     INTEGER,  ALLOCATABLE :: BRANCH     (:) ! Photolysis spc branches
      INTEGER,  ALLOCATABLE :: RINDEX     (:) ! GC to UCI spc name index mapping
      INTEGER,  ALLOCATABLE :: GC_Photo_Id(:) ! GC id per photolysis species
      INTEGER,  ALLOCATABLE :: MIEDX      (:) ! Interface indices for GC/FJX spc
@@ -144,8 +148,6 @@ MODULE Photol_Obj_Mod
      REAL(fp), ALLOCATABLE :: RAA_AOD  (:) ! Phase fnctn (first 8 terms)     
      REAL(fp), ALLOCATABLE :: SAA_AOD  (:) ! Aerosol type effective radius
 
-     REAL(fp), ALLOCATABLE :: TQQ      (:,:)       ! Temp for X-sections
-     REAL(fp), ALLOCATABLE :: QQQ      (:,:,:)     ! Xs in each WL bin [cm2]
      REAL(fp), ALLOCATABLE :: TREF     (:,:,:)     ! Temp reference profile
      REAL(fp), ALLOCATABLE :: OREF     (:,:,:)     ! Ozone reference profile
      REAL(fp), ALLOCATABLE :: ZPJ      (:,:,:,:)   ! J-values
@@ -259,6 +261,11 @@ CONTAINS
 !
 ! !USES:
 !
+#ifndef CLOUDJ 
+    USE CMN_FastJX_Mod, ONLY : W_, JVN_
+#else
+    ! placeholder. Not sure yet if this should be defined in GC or CldJ.
+#endif
     USE CMN_Size_Mod,   ONLY : NDUST, NAER
     USE ErrCode_Mod
     USE Input_Opt_Mod,  ONLY : OptInput
@@ -300,13 +307,15 @@ CONTAINS
     ! Photolysis fields that are also in Cloud-J
     !---------------------------------------------------
 
+    ! Values from Fast-JX/Cloud-J (ewl: not sure yet where to define)
+    Photol%nJvalMax = JVN_  ! Max # J-values                               
+    Photol%nWLbins  = W_    ! # WL bins
+
     ! Integer scalars
 
     ! Used in array dimensions
-    Photol%JVN_ = 18  ! Max # J-values                               
     Photol%AN_  = 37  ! Number of separate aerosols per layer        
     Photol%WX_  = 18  ! # WLs in input file                          
-    Photol%W_   = 18  ! # WL bins                                    
     Photol%M_   = 4   ! # Gaussian points used (must be 4 in Fast-JX)
     Photol%A_   = 56  ! # input aerosol/cloud Mie data sets          
 
@@ -361,10 +370,39 @@ CONTAINS
        ENDIF
        Photol%SQQ = ''
 
+       ! Character arrays
+
+       ! Photol%RNAMES      (:)
+       ALLOCATE( Photol%RNAMES(Photol%nJvalMax), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array RNAMES!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%RNAMES = ''
+
+       ! Photol%TITLAA     (:)
+       ALLOCATE( Photol%TITLAA(Photol%A_), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array TITLEAA!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%TITLAA = ''
+
        ! Integer arrays
 
+       ! Photol%BRANCH      (:)
+       ALLOCATE( Photol%BRANCH(Photol%nJvalMax), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array BRANCH!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%BRANCH = 0
+
        ! Photol%JIND(:)
-       ALLOCATE( Photol%JIND(Photol%JVN_), STAT=RC )
+       ALLOCATE( Photol%JIND(Photol%nJvalMax), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error allocating array JIND!'
           CALL GC_Error( errMsg, RC, thisLoc )
@@ -438,7 +476,7 @@ CONTAINS
        Photol%WT = 0e+0_fp
 
        ! Photol%JFACTA   (:)
-       ALLOCATE( Photol%JFACTA(Photol%JVN_), STAT=RC )
+       ALLOCATE( Photol%JFACTA(Photol%nJvalMax), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error allocating array JFACTA!'
           CALL GC_Error( errMsg, RC, thisLoc )
@@ -447,7 +485,7 @@ CONTAINS
        Photol%JFACTA = 0e+0_fp
 
        ! Photol%JLABEL   (:)
-       ALLOCATE( Photol%JLABEL(Photol%JVN_), STAT=RC )
+       ALLOCATE( Photol%JLABEL(Photol%nJvalMax), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error allocating array JLABEL!'
           CALL GC_Error( errMsg, RC, thisLoc )
@@ -518,6 +556,24 @@ CONTAINS
        ENDIF
        Photol%Q1D = 0e+0_fp
 
+       ! Photol%TQQ      (:,:)
+       ALLOCATE( Photol%TQQ(3,Photol%X_), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array TQQ!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%TQQ = 0e+0_fp
+
+       ! Photol%QQQ      (:,:,:)
+       ALLOCATE( Photol%QQQ(Photol%WX_,3,Photol%X_), STAT=RC )
+       IF ( RC /= GC_SUCCESS ) THEN
+          errMsg = 'Error allocating array QQQ!'
+          CALL GC_Error( errMsg, RC, thisLoc )
+          RETURN
+       ENDIF
+       Photol%QQQ = 0e+0_fp
+
        ! Photol%PAA     (:,:,:)
        ALLOCATE( Photol%PAA(8,5,Photol%A_), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
@@ -557,39 +613,10 @@ CONTAINS
     ! Allocate arrays
     IF ( .not. Input_Opt%DryRun ) THEN
 
-       ! Character arrays
-
-       ! Photol%RNAMES      (:)
-       ALLOCATE( Photol%RNAMES(Photol%JVN_), STAT=RC )
-       IF ( RC /= GC_SUCCESS ) THEN
-          errMsg = 'Error allocating array RNAMES!'
-          CALL GC_Error( errMsg, RC, thisLoc )
-          RETURN
-       ENDIF
-       Photol%RNAMES = ''
-
-       ! Photol%TITLEAA     (:)
-       ALLOCATE( Photol%TITLEAA(Photol%A_), STAT=RC )
-       IF ( RC /= GC_SUCCESS ) THEN
-          errMsg = 'Error allocating array TITLEAA!'
-          CALL GC_Error( errMsg, RC, thisLoc )
-          RETURN
-       ENDIF
-       Photol%TITLEAA = ''
-
        ! Integer arrays
 
-       ! Photol%BRANCH      (:)
-       ALLOCATE( Photol%BRANCH(Photol%JVN_), STAT=RC )
-       IF ( RC /= GC_SUCCESS ) THEN
-          errMsg = 'Error allocating array BRANCH!'
-          CALL GC_Error( errMsg, RC, thisLoc )
-          RETURN
-       ENDIF
-       Photol%BRANCH = 0
-
        ! Photol%RINDEX      (:)
-       ALLOCATE( Photol%RINDEX(Photol%JVN_), STAT=RC )
+       ALLOCATE( Photol%RINDEX(Photol%nJvalMax), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error allocating array RINDEX!'
           CALL GC_Error( errMsg, RC, thisLoc )
@@ -598,7 +625,7 @@ CONTAINS
        Photol%RINDEX = 0
 
        ! Photol%GC_Photo_Id (:)
-       ALLOCATE( Photol%GC_Photo_Id(Photol%JVN_), STAT=RC )
+       ALLOCATE( Photol%GC_Photo_Id(Photol%nJvalMax), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error allocating array GC_Photo_Id!'
           CALL GC_Error( errMsg, RC, thisLoc )
@@ -671,24 +698,6 @@ CONTAINS
        ENDIF
        Photol%SAA_AOD = 0e+0_fp
 
-       ! Photol%TQQ      (:,:)
-       ALLOCATE( Photol%TQQ(3,Photol%X_), STAT=RC )
-       IF ( RC /= GC_SUCCESS ) THEN
-          errMsg = 'Error allocating array TQQ!'
-          CALL GC_Error( errMsg, RC, thisLoc )
-          RETURN
-       ENDIF
-       Photol%TQQ = 0e+0_fp
-
-       ! Photol%QQQ      (:,:,:)
-       ALLOCATE( Photol%QQQ(Photol%WX_,3,Photol%X_), STAT=RC )
-       IF ( RC /= GC_SUCCESS ) THEN
-          errMsg = 'Error allocating array QQQ!'
-          CALL GC_Error( errMsg, RC, thisLoc )
-          RETURN
-       ENDIF
-       Photol%QQQ = 0e+0_fp
-
        ! Photol%TREF     (:,:,:)
        ALLOCATE( Photol%TREF(51,18,12), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
@@ -708,7 +717,7 @@ CONTAINS
        Photol%OREF = 0e+0_fp
 
        ! Photol%ZPJ      (:,:,:,:)
-       ALLOCATE( Photol%ZPJ( State_Grid%NZ, Photol%JVN_, State_Grid%NX, &
+       ALLOCATE( Photol%ZPJ( State_Grid%NZ, Photol%nJvalMax, State_Grid%NX, &
                  State_Grid%NY), STAT=RC )
        IF ( RC /= GC_SUCCESS ) THEN
           errMsg = 'Error allocating array ZPJ!'
@@ -1101,10 +1110,12 @@ CONTAINS
        IF (ALLOCATED(Photol%QO2           )) DEALLOCATE(Photol%QO2           )
        IF (ALLOCATED(Photol%QO3           )) DEALLOCATE(Photol%QO3           )
        IF (ALLOCATED(Photol%Q1D           )) DEALLOCATE(Photol%Q1D           )
+       IF (ALLOCATED(Photol%TQQ           )) DEALLOCATE(Photol%TQQ           )
+       IF (ALLOCATED(Photol%QQQ           )) DEALLOCATE(Photol%QQQ           )
        IF (ALLOCATED(Photol%PAA           )) DEALLOCATE(Photol%PAA           )
        IF (ALLOCATED(Photol%QRAYL         )) DEALLOCATE(Photol%QRAYL         )
        IF (ALLOCATED(Photol%RNAMES        )) DEALLOCATE(Photol%RNAMES        )
-       IF (ALLOCATED(Photol%TITLEAA       )) DEALLOCATE(Photol%TITLEAA       )
+       IF (ALLOCATED(Photol%TITLAA        )) DEALLOCATE(Photol%TITLAA        )
        IF (ALLOCATED(Photol%BRANCH        )) DEALLOCATE(Photol%BRANCH        )
        IF (ALLOCATED(Photol%RINDEX        )) DEALLOCATE(Photol%RINDEX        )
        IF (ALLOCATED(Photol%GC_Photo_Id   )) DEALLOCATE(Photol%GC_Photo_Id   )
@@ -1115,8 +1126,6 @@ CONTAINS
        IF (ALLOCATED(Photol%PAA_AOD       )) DEALLOCATE(Photol%PAA_AOD       )
        IF (ALLOCATED(Photol%RAA_AOD       )) DEALLOCATE(Photol%RAA_AOD       )
        IF (ALLOCATED(Photol%SAA_AOD       )) DEALLOCATE(Photol%SAA_AOD       )
-       IF (ALLOCATED(Photol%TQQ           )) DEALLOCATE(Photol%TQQ           )
-       IF (ALLOCATED(Photol%QQQ           )) DEALLOCATE(Photol%QQQ           )
        IF (ALLOCATED(Photol%TREF          )) DEALLOCATE(Photol%TREF          )
        IF (ALLOCATED(Photol%OREF          )) DEALLOCATE(Photol%OREF          )
        IF (ALLOCATED(Photol%ISOPOD        )) DEALLOCATE(Photol%ISOPOD        )

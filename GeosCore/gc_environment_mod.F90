@@ -79,8 +79,8 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod,     ONLY : Init_CMN_FastJX
-    USE CMN_Phot_Mod,       ONLY : Init_CMN_Phot
+    USE CMN_FastJX_Mod,     ONLY : Init_CMN_FastJX ! ewl: temporary
+    USE CMN_Phot_Mod,       ONLY : Init_CMN_Phot   ! ewl: temporary
     USE ErrCode_Mod
     USE Input_Opt_Mod
     USE State_Grid_Mod,     ONLY : GrdState

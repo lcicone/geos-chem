@@ -16,13 +16,11 @@ MODULE FJX_INTERFACE_MOD
 !
 ! !USES:
 !
-  USE CMN_FastJX_Mod
-  USE CMN_Phot_Mod
   USE FJX_Mod          ! ewl new
   USE PRECISION_MOD    ! For GEOS-Chem Precision (fp)
 #if defined( MODEL_CESM ) && defined( SPMD )
-      USE MPISHORTHAND
-      USE SPMD_UTILS
+  USE MPISHORTHAND
+  USE SPMD_UTILS
 #endif
 
   IMPLICIT NONE
@@ -69,6 +67,9 @@ CONTAINS
 ! !USES:
 !
     USE Charpak_Mod,    ONLY : CSTRIP
+    USE CMN_FastJX_Mod, ONLY : JVN_, NJX, NRATJ, W_, WL
+    USE CMN_FastJX_Mod, ONLY : TITLEJX, JLABEL, RNAMES, JFACTA
+    USE CMN_Phot_Mod,   ONLY : GC_Photo_ID, UVXFACTOR
     USE ErrCode_Mod
     USE Input_Opt_Mod,  ONLY : OptInput
     USE inquireMod,     ONLY : findFreeLUN
@@ -172,7 +173,8 @@ CONTAINS
     FILENAME = TRIM( DATA_DIR ) // 'FJX_spec.dat'
 
     ! Read file, or just print filename if we are in dry-run mode
-    CALL RD_XXX( JXUNIT, TRIM( FILENAME ), Input_Opt, RC)
+    CALL RD_XXX( Input_Opt%amIRoot, Input_Opt%DryRun, JXUNIT, &
+                 TRIM( FILENAME ), RC)
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -201,7 +203,8 @@ CONTAINS
     FILENAME = TRIM( DATA_DIR ) // 'jv_spec_mie.dat'
 
     ! Read data
-    CALL RD_MIE( JXUNIT, TRIM( FILENAME ), Input_Opt, RC )
+    CALL RD_MIE( Input_Opt%amIRoot, Input_Opt%DryRun, Input_Opt%LBRC, &
+                 JXUNIT, TRIM( FILENAME ), RC )
 
     ! Trap potential errors
     IF ( RC /= GC_SUCCESS ) THEN
@@ -270,8 +273,11 @@ CONTAINS
     FILENAME = TRIM( DATA_DIR ) // 'FJX_j2j.dat'
 
     ! Read mapping information
-    CALL RD_JS_JX( JXUNIT, TRIM( FILENAME ), TITLEJXX, NJXX, &
-                   Input_Opt, RC )
+    CALL RD_JS_JX( Input_Opt%amIRoot, Input_Opt%DryRun, JXUNIT, &
+                   TRIM( FILENAME ), TITLEJXX, NJXX, RC )
+
+    ! Store # of photolysis reactions in state_chm
+    State_Chm%Photol%NRatJ = NRatJ
 
 ! ewl: bring out of RD_JS_JX
     !========================================================================
@@ -599,7 +605,11 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_SIZE_MOD,       ONLY : NDUST, NRH
+    USE CMN_FastJX_Mod,     ONLY : A_, L_, L1_, W_, JVN_, JXL_, JXL1_
+    USE CMN_FastJX_Mod,     ONLY : NRATJ, JIND, JFACTA, FL
+    USE CMN_Phot_Mod,       ONLY : ZPJ, IRHARR, UVXFACTOR, IWV1000
+    USE CMN_Phot_Mod,       ONLY : ODAER, ODMDUST
+    USE CMN_SIZE_MOD,       ONLY : NDUST, NRH, NAER
     USE ErrCode_Mod
     USE ERROR_MOD,          ONLY : ERROR_STOP, ALLOC_ERR
     USE ERROR_MOD,          ONLY : DEBUG_MSG
@@ -663,7 +673,7 @@ CONTAINS
 ! !LOCAL VARIABLES:
 !
     INTEGER, SAVE :: LASTMONTH = -1
-    INTEGER       :: NLON, NLAT, DAY,  MONTH, DAY_OF_YR, L, N
+    INTEGER       :: NLON, NLAT, DAY,  MONTH, DAY_OF_YR, L, N, J
     INTEGER       :: IOPT, LCHEM
     REAL(fp)      :: CSZA, PRES, SFCA, YLAT,  O3_TOMS, SZA, SOLF
     REAL(fp)      :: O3_CTM(State_Grid%NZ+1)
@@ -703,6 +713,17 @@ CONTAINS
 
     ! ewl: input to set_prof, but I question whether we need it
     REAL(fp) :: ODCLOUD_COL(L_)
+
+    ! ewl: output from photo_jx for use in diagnostics
+    REAL(fp), DIMENSION(W_)         :: FJBOT,FSBOT
+    REAL(fp), DIMENSION(JXL1_,W_)   :: FLXD
+    REAL(fp), DIMENSION(JXL_, W_)   :: FJFLX
+
+    ! UVFlux* diagnostics
+    REAL(fp) :: FDIRECT (JXL1_)
+    REAL(fp) :: FDIFFUSE(JXL1_)
+    REAL(fp) :: UVX_CONST
+    INTEGER  :: S, K
 
     !=================================================================
     ! FAST_JX begins here!
@@ -773,7 +794,7 @@ CONTAINS
     !$OMP DEFAULT( SHARED ) &
     !$OMP PRIVATE( NLAT,    NLON,   YLAT,      CSZA,    L       ) &
     !$OMP PRIVATE( P_CTM ,  T_CTM,  SFCA,      O3_TOMS, O3_CTM  ) &
-    !$OMP PRIVATE( LCHEM,   OPTAER, N,         IOPT             ) &
+    !$OMP PRIVATE( LCHEM,   OPTAER, N,         IOPT,    J       ) &
     !$OMP PRIVATE( OPTDUST, OPTD,   CLDF1D                      ) &
 #ifdef USE_MAXIMUM_RANDOM_OVERLAP
     !$OMP PRIVATE( FMAX,    KK,     NUMB,      KBOT             ) &
@@ -781,7 +802,7 @@ CONTAINS
 #endif
     !$OMP PRIVATE( SZA, SOLF, ODCLOUD_COL                       ) &
     !$OMP PRIVATE( AERX_COL,  T_CLIM, O3_CLIM, Z_CLIM, AIR_CLIM ) &
-    !$OMP PRIVATE( VALJXX                                       ) &
+    !$OMP PRIVATE( VALJXX,    FSBOT,  FJBOT,   FLXD,   FJFLX    ) &
     !$OMP SCHEDULE( DYNAMIC )
 
     ! Loop over latitudes and longitudes
@@ -941,111 +962,101 @@ CONTAINS
                       Input_Opt,   State_Grid )
 
        ! Call FAST-JX routines to compute J-values
-       CALL PHOTO_JX( CSZA,      SFCA,       SZA,       SOLF,       &
+       CALL PHOTO_JX( Input_Opt%amIRoot, Input_Opt%DryRun,          &
+                      CSZA,      SFCA,       SZA,       SOLF,       &
                       P_CTM,     T_CTM,      AOD999,    NLON,       &
                       NLAT,      AERX_COL,   T_CLIM,    O3_CLIM,    &
-                      Z_CLIM,    AIR_CLIM,   Input_Opt, State_Grid, &
-                      State_Met, State_Diag, VALJXX )
+                      Z_CLIM,    AIR_CLIM,   State_Grid%maxChemLev, &
+                      VALJXX,     FSBOT,     FJBOT,     FLXD,       &
+                      FJFLX                                        )
 
-! ewl: I brought this out here. TODO: enable! Comment out in photo_jx.
-!       ! Fill out common-block array of J-rates
-!       DO L=1,State_Grid%MaxChemLev
-!          DO J=1,NRATJ
-!             IF (JIND(J).gt.0) THEN
-!                ZPJ(L,J,NLON,NLAT) = VALJXX(L,JIND(J))*JFACTA(J)
-!             ELSE
-!                ZPJ(L,J,NLON,NLAT) = 0.e+0_fp
-!             ENDIF
-!          ENDDO
-!       ENDDO
-!       
-!       ! Set J-rates outside the chemgrid to zero
-!       IF (State_Grid%MaxChemLev.lt.L_) THEN
-!          DO L=State_Grid%MaxChemLev+1,L_
-!             DO J=1,NRATJ
-!                ZPJ(L,J,NLON,NLAT) = 0.e+0_fp
-!             ENDDO
-!          ENDDO
-!       ENDIF
+       ! Fill out common-block array of J-rates using PHOTO_JX output
+       DO L=1,State_Grid%MaxChemLev
+          DO J=1,NRATJ
+             IF (JIND(J).gt.0) THEN
+                ZPJ(L,J,NLON,NLAT) = VALJXX(L,JIND(J))*JFACTA(J)
+             ELSE
+                ZPJ(L,J,NLON,NLAT) = 0.e+0_fp
+             ENDIF
+          ENDDO
+       ENDDO
+       
+       ! Set J-rates outside the chemgrid to zero
+       IF (State_Grid%MaxChemLev.lt.L_) THEN
+          DO L=State_Grid%MaxChemLev+1,L_
+             DO J=1,NRATJ
+                ZPJ(L,J,NLON,NLAT) = 0.e+0_fp
+             ENDDO
+          ENDDO
+       ENDIF
 
-! ewl: could I somehow move the flux diagnostics to here and out of photo_jx?
-!       ! ewl: The below code can be taken out of photo_jx, just need to
-!       ! figure out what photo_jx outputs it needs...
-!       ! (1) FSBOT
-!       ! (2) FJBOT
-!       ! (3) FLXD
-!       ! (4) FJFLX
-!       ! (5) SOLF
-!       ! (6) FL
-!       ! (7) UVXFACTOR
-!       ! (8) UVX_CONST
-!       !=================================================================
-!       ! UV radiative fluxes (direct, diffuse, net) [W/m2]
-!       !
-!       ! Updated for netCDF from nd64 (JMM 2019-09-11)
-!       ! Use it to calculate fluxes for output if necessary
-!       !
-!       ! Get net direct and net diffuse fluxes separately
-!       ! Order:
-!       !    1 - Net flux
-!       !    2 - Direct flux
-!       !    3 - Diffuse flux
-!       ! Convention: negative is downwards
-!       !=================================================================
-!       IF ( State_Diag%Archive_UVFluxDiffuse .or. &
-!            State_Diag%Archive_UVFluxDirect .or. &
-!            State_Diag%Archive_UVFluxNet ) THEN
-!       
-!          ! Loop over wavelength bins
-!          DO K = 1, W_
-!       
-!             ! Initialize
-!             FDIRECT  = 0.0_fp
-!             FDIFFUSE = 0.0_fp
-!       
-!             ! Direct & diffuse fluxes at each level
-!             FDIRECT(1)  = FSBOT(K)                    ! surface
-!             FDIFFUSE(1) = FJBOT(K)                    ! surface
-!             DO L = 2, State_Grid%NZ
-!                FDIRECT(L) = FDIRECT(L-1) + FLXD(L-1,K)
-!                FDIFFUSE(L) = FJFLX(L-1,K)
-!             ENDDO
-!       
-!             ! Constant to multiply UV fluxes at each wavelength bin
-!             UVX_CONST = SOLF * FL(K) * UVXFACTOR(K)
-!       
-!             ! Archive into diagnostic arrays
-!             DO L = 1, State_Grid%NZ
-!       
-!                IF ( State_Diag%Archive_UVFluxNet ) THEN
-!                   S = State_Diag%Map_UvFluxNet%id2slot(K)
-!                   IF ( S > 0 ) THEN
-!                      State_Diag%UVFluxNet(NLON,NLAT,L,S) =  &
-!                      State_Diag%UVFluxNet(NLON,NLAT,L,S) +  &
-!                           ( ( FDIRECT(L) + FDIFFUSE(L) ) * UVX_CONST )
-!                   ENDIF
-!                ENDIF
-!       
-!                IF ( State_Diag%Archive_UVFluxDirect ) THEN
-!                   S = State_Diag%Map_UvFluxDirect%id2slot(K)
-!                   IF ( S > 0 ) THEN
-!                      State_Diag%UVFluxDirect(NLON,NLAT,L,S) =  &
-!                      State_Diag%UVFluxDirect(NLON,NLAT,L,S) +  &
-!                           ( FDIRECT(L) * UVX_CONST )
-!                   ENDIF
-!                ENDIF
-!       
-!                IF ( State_Diag%Archive_UVFluxDiffuse ) THEN
-!                   S = State_Diag%Map_UvFluxDiffuse%id2slot(K)
-!                   IF ( S > 0 ) THEN
-!                      State_Diag%UVFluxDiffuse(NLON,NLAT,L,S) =  &
-!                      State_Diag%UVFluxDiffuse(NLON,NLAT,L,S) +  &
-!                           ( FDIFFUSE(L) * UVX_CONST )
-!                   ENDIF
-!                ENDIF
-!             ENDDO
-!          ENDDO
-!       ENDIF
+       !=================================================================
+       ! UV radiative fluxes (direct, diffuse, net) [W/m2]
+       !
+       ! Updated for netCDF from nd64 (JMM 2019-09-11)
+       ! Use it to calculate fluxes for output if necessary
+       !
+       ! Get net direct and net diffuse fluxes separately
+       ! Order:
+       !    1 - Net flux
+       !    2 - Direct flux
+       !    3 - Diffuse flux
+       ! Convention: negative is downwards
+       !=================================================================
+       IF ( State_Diag%Archive_UVFluxDiffuse .or. &
+            State_Diag%Archive_UVFluxDirect .or. &
+            State_Diag%Archive_UVFluxNet ) THEN
+       
+          ! Loop over wavelength bins
+          DO K = 1, W_
+       
+             ! Initialize
+             FDIRECT  = 0.0_fp
+             FDIFFUSE = 0.0_fp
+       
+             ! Direct & diffuse fluxes at each level
+             FDIRECT(1)  = FSBOT(K)                    ! surface
+             FDIFFUSE(1) = FJBOT(K)                    ! surface
+             DO L = 2, State_Grid%NZ
+                FDIRECT(L) = FDIRECT(L-1) + FLXD(L-1,K)
+                FDIFFUSE(L) = FJFLX(L-1,K)
+             ENDDO
+       
+             ! Constant to multiply UV fluxes at each wavelength bin
+             UVX_CONST = SOLF * FL(K) * UVXFACTOR(K)
+       
+             ! Archive into diagnostic arrays
+             DO L = 1, State_Grid%NZ
+       
+                IF ( State_Diag%Archive_UVFluxNet ) THEN
+                   S = State_Diag%Map_UvFluxNet%id2slot(K)
+                   IF ( S > 0 ) THEN
+                      State_Diag%UVFluxNet(NLON,NLAT,L,S) =  &
+                      State_Diag%UVFluxNet(NLON,NLAT,L,S) +  &
+                           ( ( FDIRECT(L) + FDIFFUSE(L) ) * UVX_CONST )
+                   ENDIF
+                ENDIF
+       
+                IF ( State_Diag%Archive_UVFluxDirect ) THEN
+                   S = State_Diag%Map_UvFluxDirect%id2slot(K)
+                   IF ( S > 0 ) THEN
+                      State_Diag%UVFluxDirect(NLON,NLAT,L,S) =  &
+                      State_Diag%UVFluxDirect(NLON,NLAT,L,S) +  &
+                           ( FDIRECT(L) * UVX_CONST )
+                   ENDIF
+                ENDIF
+       
+                IF ( State_Diag%Archive_UVFluxDiffuse ) THEN
+                   S = State_Diag%Map_UvFluxDiffuse%id2slot(K)
+                   IF ( S > 0 ) THEN
+                      State_Diag%UVFluxDiffuse(NLON,NLAT,L,S) =  &
+                      State_Diag%UVFluxDiffuse(NLON,NLAT,L,S) +  &
+                           ( FDIFFUSE(L) * UVX_CONST )
+                   ENDIF
+                ENDIF
+             ENDDO
+          ENDDO
+       ENDIF
 
     ENDDO
     ENDDO
@@ -1075,6 +1086,7 @@ CONTAINS
 !
 ! !USES:
 !
+    USE CMN_Phot_Mod,   ONLY : ZPJ
     USE ErrCode_Mod
     USE Input_Opt_Mod,  ONLY : OptInput
     USE State_Chm_Mod,  ONLY : ChmState
@@ -1224,7 +1236,9 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
+    USE CMN_Phot_Mod,  ONLY : RDAA, RWAA, WVAA, NRAA, RHAA, SGAA, QQAA, REAA
+    USE CMN_Phot_Mod,  ONLY : SSAA, ASYMAA, PHAA
+    USE CMN_Phot_Mod,  ONLY : IWV1000, NSPAA, NWVAA, NRLAA, NCMAA, ALPHAA
     USE ErrCode_Mod
     USE Input_Opt_Mod, ONLY : OptInput
 !
@@ -1693,6 +1707,7 @@ CONTAINS
 !
 ! !USES:
 !
+    USE CMN_Phot_Mod,  ONLY : OREF, TREF
     USE ErrCode_Mod
     USE Input_Opt_Mod, ONLY : OptInput
 
@@ -1923,8 +1938,9 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
-    USE CMN_SIZE_Mod,       ONLY : NAER, NRH
+    USE CMN_FastJX_Mod,     ONLY : L_, L1_, A_, ZZHT
+    USE CMN_Phot_Mod,       ONLY : OREF, TREF
+    USE CMN_SIZE_Mod,       ONLY : NAER, NRH, NDUST
     USE Input_Opt_Mod,      ONLY : OptInput
     USE PhysConstants,      ONLY : AIRMW, AVO, g0, BOLTZ
     USE State_Grid_Mod,     ONLY : GrdState
@@ -2210,9 +2226,10 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod
-    USE CMN_SIZE_Mod,  ONLY : NRHAER, NRH
-    USE Input_Opt_Mod, ONLY : OptInput
+    USE CMN_FastJX_Mod, ONLY : AN_, NAA, TITLAA
+    USE CMN_Phot_Mod,   ONLY : MIEDX
+    USE CMN_SIZE_Mod,   ONLY : NRHAER, NRH
+    USE Input_Opt_Mod,  ONLY : OptInput
 !
 ! !INPUT PARAMETERS:
 !

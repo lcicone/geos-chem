@@ -56,6 +56,12 @@ MODULE CMN_FastJX_MOD
   ! Label of J-value used in the main chem model
   CHARACTER*50       :: JLABEL(JVN_)
 
+  ! Branches for photolysis species (ewl: not in cloudj but candidate to add)
+  INTEGER            :: BRANCH(JVN_)
+
+  ! Names of photolysis species (ewl: not in cloudj but candidate to add)
+  CHARACTER (LEN=10) :: RNAMES(JVN_)
+
   ! JXL_: vertical(levels) dim for J-values computed within fast-JX
   INTEGER            :: JXL_
   INTEGER            :: JXL1_
@@ -147,6 +153,9 @@ MODULE CMN_FastJX_MOD
 
   ! TITLEJX: Title for supplied cross sections, from 'FJX_spec.dat'
   CHARACTER*6          :: TITLEJX(X_)
+
+  ! QQQ: Supplied cross sections in each wavelength bin (cm2)
+  REAL(fp)             :: QQQ(WX_,3,X_)
 
   ! SQQ: Flag for supplied cross sections, from 'FJX_spec.dat'
   CHARACTER*1          :: SQQ(X_)
@@ -252,6 +261,9 @@ CONTAINS
 
     AN_       = 37  ! # of separate aerosols per layer; Including PSCs
     W_        = 18  ! # of wavelength bins
+
+    ! Initialize RNAMES to empty string (ckeller,12/29/17)
+    RNAMES(:) = ""
 
     ! Return w/ success
     RC = GC_SUCCESS

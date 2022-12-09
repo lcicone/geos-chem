@@ -783,7 +783,8 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_Phot_Mod,       ONLY : RAA, IND999
+    USE CMN_FastJX_Mod,     ONLY : RAA
+    USE CMN_Phot_Mod,       ONLY : IND999
     USE ErrCode_Mod
     USE ERROR_MOD,          ONLY : IT_IS_NAN,ERROR_STOP
     USE Input_Opt_Mod,      ONLY : OptInput

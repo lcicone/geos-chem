@@ -611,7 +611,6 @@ CONTAINS
     USE Depo_Mercury_Mod,   ONLY : ADD_Hg2_DD
     USE Depo_Mercury_Mod,   ONLY : ADD_HgP_DD
     USE FJX_Interface_Mod,  ONLY : FAST_JX
-    USE CMN_FastJX_Mod,     ONLY : nRatJ
     USE CMN_Phot_Mod,       ONLY : ODMDUST, IRHARR, ODAER, GC_Photo_Id, ZPJ
     USE GcKpp_Monitor,      ONLY : SPC_NAMES, FAM_NAMES
     USE GcKpp_Parameters
@@ -1007,7 +1006,7 @@ CONTAINS
        IF ( State_Met%SUNCOSmid(I,J) > -0.1391731e+0_fp ) THEN
 
           ! Loop over the FAST-JX photolysis species
-          DO N = 1, nRatJ
+          DO N = 1, State_Chm%Photol%nRatJ
 
              ! Copy photolysis rate from FAST_JX into KPP PHOTOL array
              IF ( DO_PHOTCHEM ) THEN
@@ -3445,7 +3444,6 @@ CONTAINS
 !
 ! !USES:
 !
-    USE CMN_FastJX_Mod,     ONLY : nRatJ
     USE CMN_Phot_Mod,       ONLY : GC_Photo_Id
     USE Cmn_Size_Mod,       ONLY : nAer, nDust
     USE ErrCode_Mod
@@ -3854,14 +3852,14 @@ CONTAINS
     p_Hg2ORGP      = Ind_( 'Hg2ORGP', 'P' )
     p_NO2          = Ind_( 'NO2',     'P' )
 
-    ! Initialize variables for slots of ZPJ
+    ! Initialize variables for # reactions and slots of ZPJ
     id_phot_BrO    = 0
     id_phot_ClO    = 0
     id_phot_Hg2Org = 0
     id_phot_NO2    = 0
 
     ! Loop over all photolysis reactions
-    DO N = 1, nRatJ
+    DO N = 1, State_Chm%Photol%nRatJ
 
        ! GC photolysis species index (skip if not present)
        P = GC_Photo_Id(N)
@@ -3876,22 +3874,22 @@ CONTAINS
     ENDDO
 
     ! Error checks
-    IF ( id_phot_BrO <= 0 .or. id_phot_BrO > nRatJ ) THEN
+    IF ( id_phot_BrO <= 0 .or. id_phot_BrO > State_Chm%Photol%nRatJ ) THEN
        errMsg = 'Invalid photolysis index for BrO!'
        CALL GC_Error( errMsg, RC, thisLoc )
        RETURN
     ENDIF
-    IF ( id_phot_ClO <= 0 .or. id_phot_ClO > nRatJ ) THEN
+    IF ( id_phot_ClO <= 0 .or. id_phot_ClO > State_Chm%Photol%nRatJ ) THEN
        errMsg = 'Invalid photolysis index for ClO!'
        CALL GC_Error( errMsg, RC, thisLoc )
        RETURN
     ENDIF
-    IF ( id_phot_Hg2Org <= 0 .or. id_phot_Hg2Org > nRatJ ) THEN
+    IF ( id_phot_Hg2Org <= 0 .or. id_phot_Hg2Org > State_Chm%Photol%nRatJ ) THEN
        errMsg = 'Invalid photolysis index for HG2ORGP!'
        CALL GC_Error( errMsg, RC, thisLoc )
        RETURN
     ENDIF
-    IF ( id_phot_NO2 <= 0 .or. id_phot_NO2 > nRatJ ) THEN
+    IF ( id_phot_NO2 <= 0 .or. id_phot_NO2 > State_Chm%Photol%nRatJ ) THEN
        errMsg = 'Invalid photolysis index for NO2!'
        CALL GC_Error( errMsg, RC, thisLoc )
        RETURN

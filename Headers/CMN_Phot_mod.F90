@@ -1,3 +1,4 @@
+
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !
 !------------------------------------------------------------------------------
@@ -16,8 +17,8 @@ MODULE CMN_Phot_Mod
 !
 ! !USES:
 !
-  USE CMN_FastJX_Mod
-  USE CMN_SIZE_MOD, ONLY : NDUST, NAER
+  USE CMN_FastJX_Mod, ONLY: A_, AN_, JVN_, WX_
+  USE CMN_SIZE_MOD,   ONLY : NDUST, NAER
   USE PRECISION_MOD      ! For GEOS-Chem Precision (fp)
 
   IMPLICIT NONE
@@ -28,13 +29,6 @@ MODULE CMN_Phot_Mod
   ! New (SDE 03/28/13)
   ! Index in RAA & QAA of 999 nm wavelength
   INTEGER, PARAMETER :: IND999  = 5
-
-  ! Variables used to interface GEOS-Chem and Fast-JX at runtime
-  ! Branches for photolysis species
-  INTEGER            :: BRANCH(JVN_)
-
-  ! Names of photolysis species
-  CHARACTER (LEN=10) :: RNAMES(JVN_)
 
   ! Mapping array from Harvard species names to UCI species names
   INTEGER            :: RINDEX(JVN_)
@@ -49,19 +43,8 @@ MODULE CMN_Phot_Mod
   ! variables used to map fast-JX J's onto CTM J's
   !-----------------------------------------------------------------------
 
-  ! Physical constants
-  REAL(fp), PARAMETER  :: UVXPLANCK = 6.62606957e-34
-  REAL(fp), PARAMETER  :: UVXCCONST = 2.99792458e8
-
   ! Conversion factors from photons/cm2s to W/m2
   REAL(fp), DIMENSION(WX_) :: UVXFACTOR
-
-  !-----------------------------------------------------------------------
-  ! Variables in file 'FJX_spec.dat' (RD_XXX)
-  !-----------------------------------------------------------------------
-
-  ! QQQ: Supplied cross sections in each wavelength bin (cm2)
-  REAL(fp)             :: QQQ(WX_,3,X_)
 
   !-----------------------------------------------------------------------
   ! Variables in file 'jv_spec_aod.dat' (RD_AOD)
@@ -317,8 +300,6 @@ CONTAINS
        RTASYMAER = 0d0
 #endif
     ENDIF
-    ! Initialize RNAMES to empty string (ckeller,12/29/17)
-    RNAMES(:) = ""
 
     ! Return w/ success
     RC = GC_SUCCESS

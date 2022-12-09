@@ -370,7 +370,6 @@ CONTAINS
     USE ErrCode_Mod
     USE ERROR_MOD,  ONLY : GEOS_CHEM_STOP
     USE FILE_MOD,   ONLY : IOERROR
-    USE CMN_FastJX_Mod,     ONLY : JVN_
     USE CMN_Phot_Mod,       ONLY : GC_Photo_Id
     USE Input_Opt_Mod,      ONLY : OptInput
     USE Species_Mod,        ONLY : Species
@@ -785,7 +784,7 @@ CONTAINS
            P         = -999         ! GEOS-Chem photolyis species ID
 
            ! Loop the reaciton branches and find the correct "P" index
-           DO IK = 1, JVN_
+           DO IK = 1, State_Chm%Photol%nJvalMax
 
                ! GC photolysis species index
                P = GC_Photo_Id(NUM)

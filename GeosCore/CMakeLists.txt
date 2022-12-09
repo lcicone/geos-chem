@@ -89,7 +89,6 @@ add_library(GeosCore
   rpmares_mod.F90
   seasalt_mod.F90
   set_global_ch4_mod.F90
-  set_prof_o3.F90
   sfcvmr_mod.F90
   sulfate_mod.F90
   tagged_co_mod.F90
