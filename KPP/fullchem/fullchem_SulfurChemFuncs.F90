@@ -165,6 +165,7 @@ CONTAINS
     ! Scalars
     LOGICAL            :: SALAAL_gt_0_1
     LOGICAL            :: SALCAL_gt_0_1
+    LOGICAL            :: O3_gt_0
     REAL(fp)           :: k_ex
 
     ! Strings
@@ -181,6 +182,7 @@ CONTAINS
     K_MT          = 0.0_dp
     SALAAL_gt_0_1 = ( C(ind_SALAAL) > 0.1_dp )
     SALCAL_gt_0_1 = ( C(ind_SALCAL) > 0.1_dp )
+    O3_gt_0       = ( C(ind_O3)     > 0.0_dp )
 
     !======================================================================
     ! Reaction rates [1/s] for fine sea salt alkalinity (aka SALAAL)
@@ -189,13 +191,13 @@ CONTAINS
     ! K_MT(2) : SALAAL + HCl      = SALACL
     ! K_MT(3) : SALAAL + HNO3     = NIT
     !
-    ! NOTE: SALAAL_gt_0_1 prevents div-by-zero errors
+    ! NOTE: SALAAL_gt_0_1 and O3_gt_0 prevent div-by-zero errors
     !======================================================================
 
     !------------------------------------------------------------------------
     ! SALAAL + SO2 + O3 = SO4 - SALAAL
     !------------------------------------------------------------------------
-    IF ( SALAAL_gt_0_1 ) THEN
+    IF ( SALAAL_gt_0_1 .and. O3_gt_0 ) THEN
 
        ! 1st order uptake
        k_ex = Ars_L1K( area   = State_Chm%WetAeroArea(I,J,L,11),             &
@@ -204,8 +206,7 @@ CONTAINS
                        srMw   = SR_MW(ind_SO2)                              )
 
        ! Assume SO2 is limiting, so recompute rxn rate accordingly
-       K_MT(1) = kIIR1Ltd( C(ind_SO2), C(ind_SALAAL), k_ex )
-       K_MT(1) = SafeDiv( K_MT(1), C(ind_O3), 0.0_dp )
+       K_MT(1) = kIIR1Ltd( C(ind_SO2), C(ind_SALAAL), k_ex ) / C(ind_O3)
     ENDIF
 
     !------------------------------------------------------------------------
@@ -240,18 +241,18 @@ CONTAINS
 
     !========================================================================
     ! Reaction rates [1/s] for coarse sea salt alkalinity (aka SALAAL)
-    !
+    !q
     ! K_MT(4) : SALCAL + SO2 + O3 = SO4s - SALCAL
     ! K_MT(5) : SALCAL + HCl      = SALCCL
     ! K_MT(6) : SALCAL + HNO3     = NITs
     !
-    ! NOTE: SALCAL_gt_0_1 prevents div-by-zero errors
+    ! NOTE: SALCAL_gt_0_1 and O3_gt_0 prevent div-by-zero errors
     !========================================================================
 
     !------------------------------------------------------------------------
     ! SALCAL + SO2 + O3 = SO4s - SALCAL
     !------------------------------------------------------------------------
-    IF ( SALCAL_gt_0_1 ) THEN
+    IF ( SALCAL_gt_0_1 .and. O3_gt_0 ) THEN
 
        ! 1st order uptake
        k_ex = Ars_L1K( area   = State_Chm%WetAeroArea(I,J,L,12),             &
@@ -261,7 +262,6 @@ CONTAINS
 
        ! Assume SO2 is limiting, so recompute rxn rate accordingly
        K_MT(4) = kIIR1Ltd( C(ind_SO2), C(ind_SALCAL), k_ex ) / C(ind_O3)
-       K_MT(4) = kIIR1Ltd( K_MT(4), C(ind_O3), 0.0_dp )
     ENDIF
 
     !------------------------------------------------------------------------
