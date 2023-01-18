@@ -1,5 +1,5 @@
 README -- Describes contents of GEOS-Chem repository
-
+edited by JMK
 01 Feb 2017
 GEOS-Chem Support Team
 geos-chem-support@as.harvard.edu
@@ -15,3 +15,5 @@ Please see the following resources for more information:
 4. http://wiki.geos-chem.org/HEMCO
 5. http://wiki.geos-chem.org/GEOS-Chem-Unit-Tester
 6. http://wiki.geos-chem.org/Creating_GEOS-Chem_run_directories
+# GC_CODE
+# GC_PAH_nest

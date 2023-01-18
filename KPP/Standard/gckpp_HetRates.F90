@@ -78,7 +78,7 @@ MODULE GCKPP_HETRATES
   REAL(fp) :: TEMPK,        RELHUM,    SPC_SO4
   REAL(fp) :: SPC_NIT,      GAMMA_HO2, XTEMP,   XDENA
   REAL(fp) :: CLD_BRNO3_RC, KI_HBR,    KI_HOBr, QLIQ
-  REAL(fp) :: QICE
+  REAL(fp) :: QICE,         RH
 
   ! Arrays
   REAL(fp) :: SCF2(3)
@@ -183,7 +183,9 @@ MODULE GCKPP_HETRATES
       REAL(fp) :: ADJUSTEDRATE, CONSEXP,  DUMMY,    HBr_RTEMP
       REAL(fp) :: HOBr_RTEMP,   QICE,     QLIQ,     SPC_BrNO3
       REAL(fp) :: SPC_ClNO3,    SPC_H2O,  SPC_HBr,  SPC_HCl
-      REAL(fp) :: SPC_HOBr,     SPC_HOCl, SPC_N2O5, VPRESH2O
+      REAL(fp) :: SPC_HOBr,     SPC_HOCl, SPC_N2O5, SPC_O3
+	  REAL(fp) :: SPC_NO2
+	  REAL(fp) :: AIRVOL,       VPRESH2O
 
 #if defined( UCX )
       ! Variables for UCX-based mechanisms
@@ -215,6 +217,8 @@ MODULE GCKPP_HETRATES
       SPC_HOBr      = 0.0_fp
       SPC_HOCl      = 0.0_fp
       SPC_N2O5      = 0.0_fp
+	  SPC_N2O5      = 0.0_fp
+      SPC_NO2       = 0.0_fp
       VPRESH2O      = 0.0_fp
 
       ! Initialize logicals
@@ -223,6 +227,9 @@ MODULE GCKPP_HETRATES
       STRATBOX      = .FALSE.
       NATSURFACE    = .FALSE.
 
+	  !Get AIRVOL
+	  AIRVOL   = SM%AIRVOL(I,J,L)
+	  
 #if defined( UCX )
       !--------------------------------------------------------------------
       ! Initialize for UCX
@@ -277,7 +284,21 @@ MODULE GCKPP_HETRATES
       ELSE
          SPC_HOBr   = SC%Species(I,J,L,IND)
       ENDIF
-
+	  
+	  IND = Ind_('O3')
+      IF (IND .le. 0) THEN
+         SPC_O3   = 0.0e+0_fp
+      ELSE
+         SPC_O3   = SC%Species(I,J,L,IND)
+      ENDIF
+	  
+	  IND = Ind_('NO2')
+      IF (IND .le. 0) THEN
+         SPC_NO2   = 0.0e+0_fp
+      ELSE
+         SPC_NO2   = SC%Species(I,J,L,IND)
+      ENDIF
+	  
 #if defined( UCX )
       IND = Ind_('N2O5')
       IF (IND .le. 0) THEN
@@ -363,6 +384,7 @@ MODULE GCKPP_HETRATES
       XRADI(1:SC%nAero) = SC%AeroRadi(I,J,L,:)
 
       TEMPK = SM%T(I,J,L)
+	  RH    = SM%RH(I,J,L)
       XTEMP = sqrt(SM%T(I,J,L))
       XDENA = SM%AIRNUMDEN(I,J,L)
 
@@ -435,6 +457,7 @@ MODULE GCKPP_HETRATES
       HET(ind_HBr,  1) = HETHBr(        0.81E2_fp, 2E-1_fp)
       HET(ind_HOBr ,2) = HETHOBr_ice(   0.97E2_fp, 1E-1_fp)
       HET(ind_HBr,  2) = HETHBr_ice(    0.81E2_fp, 1E-1_fp)
+	 
 #if defined( UCX )
       HET(ind_N2O5, 2) = HETN2O5_PSC(   1.08E2_fp, 0E+0_fp)
       HET(ind_ClNO3,1) = HETClNO3_PSC1( 0.97E2_fp, 0E+0_fp)
@@ -445,7 +468,11 @@ MODULE GCKPP_HETRATES
       HET(ind_HOCl, 2) = HETHOCl_PSC2(  0.52E2_fp, 0E+0_fp)
       HET(ind_HOBr, 3) = HETHOBr_PSC(   0.97E2_fp, 0E+0_fp)
 #endif
-
+      !--------------------------------------------------------------------
+      ! Calculate and pass PAH het rates to the KPP rate array
+      !--------------------------------------------------------------------
+	  !kmax, KO3, RH shut off, Temp Shut off, RH, Temp, Species 
+      HET(ind_O3 ,  1) = HETO3(4.8e-2_fp, 1.2E-15_fp, 10.0_fp, 296.0_fp, RH, TEMPK, SPC_O3) !http://pubs.acs.org/doi/pdf/10.1021/jp075300i
       !--------------------------------------------------------------------
       ! Kludging the rates to be equal to one another to avoid having
       ! to keep setting equality in solver. (jpp, 5/10/2011)
@@ -723,6 +750,65 @@ MODULE GCKPP_HETRATES
       ENDDO
       
     END FUNCTION HETNO3
+!EOC
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
+! !IROUTINE: HetO3
+!
+! !DESCRIPTION: Set the heterogenous chemistry rate for NO2.
+!\\
+!\\
+! !INTERFACE:
+!   
+    FUNCTION HETO3( kmax, KO3, RHmin, Tmin, RH, T, TCO3) RESULT( HET_O3 )
+!
+! !INPUT PARAMETERS: 
+!
+      REAL(fp), INTENT(IN) :: kmax, KO3, RHmin, Tmin, RH, T, TCO3
+!
+! !RETURN VALUE:
+! 
+      REAL(fp)             :: HET_O3
+!
+! !REMARKS:
+!
+! !REVISION HISTORY:
+!  29 Mar 2016 - R. Yantosca - Added ProTeX header
+!  01 Apr 2016 - R. Yantosca - Define N, XSTKCF, ADJUSTEDRATE locally
+!  01 Apr 2016 - R. Yantosca - Replace KII_KI with DO_EDUCT local variable
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES:
+!
+      ! Initialize
+      HET_O3     = 0.0_fp
+	  
+      ! Add to overall reaction rate
+      HET_O3 = kmax*((KO3*TCO3)/(1+KO3*TCO3))
+	  
+	  ! Correction factor
+	  HET_O3 = HET_O3 * 1e-10_fp
+	  
+	  ! 30% of BAP is not available for reaction
+!	  HET_O3 = HET_O3*0.7_fp
+	  
+	  ! If relative humidity below limit shut off heterogenous chemistry
+	   ! IF (RHmin > RH) THEN
+		! HET_O3 = 0.0_fp
+	  ! ENDIF
+		
+	  ! ! If temperature below limit shut off heterogenous chemistry
+	  ! IF (Tmin > T) THEN
+		! HET_O3 = 0.0_fp
+	  ! ENDIF
+	  
+    END FUNCTION HETO3
 !EOC
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !

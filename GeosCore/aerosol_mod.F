@@ -766,6 +766,7 @@
 
             ! ASOA (benz, tolu, xyle, + NAP/IVOC SOA) [kg/m3]
             IF ( IS_ASOA ) THEN
+               ! WRITE(6,*) ('JMK 01/07/19 aerosol_mod.F #1...')
                ASOA(I,J,L) = ( Spc(I,J,L,id_ASOAN)
      &                       + Spc(I,J,L,id_ASOA1)
      &                       + Spc(I,J,L,id_ASOA2)

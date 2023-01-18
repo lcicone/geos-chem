@@ -551,6 +551,15 @@ MODULE Input_Opt_Mod
      REAL(fp)                    :: POP_HSTAR
      REAL(fp)                    :: POP_DEL_H
      REAL(fp)                    :: POP_DEL_Hw
+	 
+     !----------------------------------------
+     ! PAH MENU fields
+     !----------------------------------------
+     LOGICAL                     :: PPFER_PARTITIONING
+	 REAL(fp)                    :: WSOC_RATIO
+     LOGICAL                     :: KAHAN_HET_OFF
+     REAL(fp)                    :: PAH_KMAX
+     REAL(fp)                    :: PAH_KO3
 
      !----------------------------------------
      ! Fields for drydep and dust.  These get
@@ -1346,7 +1355,16 @@ CONTAINS
     Input_Opt%POP_HSTAR              = 0e+0_fp
     Input_Opt%POP_DEL_H              = 0e+0_fp
     Input_Opt%POP_DEL_Hw             = 0e+0_fp
-
+	
+	!----------------------------------------
+    ! PAH MENU fields
+    !----------------------------------------
+    Input_Opt%PPFER_PARTITIONING     = .FALSE.
+	Input_Opt%WSOC_RATIO             = 0.5_fp
+    Input_Opt%KAHAN_HET_OFF          = .FALSE.
+    Input_Opt%PAH_KMAX               = 0e+0_fp
+    Input_Opt%PAH_KO3                = 0e+0_fp
+	
     !----------------------------------------
     ! Fields for DRYDEP and DUST based on
     ! input from the file "input.geos"

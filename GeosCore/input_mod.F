@@ -391,7 +391,10 @@
          
          ELSE IF ( INDEX( LINE, 'POPS MENU'        ) > 0 ) THEN
             CALL READ_POPS_MENU( am_I_Root, Input_Opt, RC )
-           
+ 
+         ELSE IF ( INDEX( LINE, 'PAH MENU'        ) > 0 ) THEN
+            CALL READ_PAH_MENU( am_I_Root, Input_Opt, RC )
+ 
          ELSE IF ( INDEX( LINE, 'MERCURY MENU'     ) > 0 ) THEN 
             CALL READ_MERCURY_MENU( am_I_Root, Input_Opt, RC  )
                                    
@@ -7141,6 +7144,114 @@
       RC = GC_SUCCESS
 
       END SUBROUTINE READ_POPS_MENU
+!EOC
+!------------------------------------------------------------------------------
+!                  GEOS-Chem Global Chemical Transport Model                  !
+!------------------------------------------------------------------------------
+!BOP
+!
+! !IROUTINE: read_pah_menu
+!
+! !DESCRIPTION: Subroutine READ_PAH_MENU reads the PAH MENU section of 
+!  the GEOS-Chem input file;
+!\\
+!\\
+! !INTERFACE:
+!
+      SUBROUTINE READ_PAH_MENU( am_I_Root, Input_Opt, RC )
+!
+! !USES:
+!
+      USE ErrCode_Mod
+      USE Input_Opt_Mod,        ONLY : OptInput
+!
+! !INPUT PARAMETERS:
+!
+      LOGICAL, INTENT(IN)           :: am_I_Root   ! Is this the root CPU?
+!
+! !INPUT/OUTPUT PARAMETERS:
+!
+      TYPE(OptInput), INTENT(INOUT) :: Input_Opt   ! Input options
+!
+! !OUTPUT PARAMETERS:
+!
+      INTEGER,        INTENT(OUT)   :: RC          ! Success or failure?
+! 
+! !REVISION HISTORY: 
+!  28 March 2019 - P. Ivatt - Initial version
+!EOP
+!------------------------------------------------------------------------------
+!BOC
+!
+! !LOCAL VARIABLES:
+!
+      ! Scalars
+      INTEGER            :: N
+      LOGICAL            :: PPFER_ON, KAHAN_HET_OFF
+      REAL(fp)           :: WSOC_RATIO, PAH_KMAX, PAH_KO3
+
+      ! Arrays
+      CHARACTER(LEN=255) :: SUBSTRS(MAXDIM)
+
+
+      !=================================================================
+      ! READ_POPS_MENU begins here!
+      !=================================================================
+
+      ! Turn on PPFER_PARTITIONING
+      CALL SPLIT_ONE_LINE( SUBSTRS, N, 1, 'read_pah_menu:1' )
+      READ( SUBSTRS(1:N), * ) PPFER_ON
+	  
+	  ! Ratio of water soluble OC in OC.
+      CALL SPLIT_ONE_LINE( SUBSTRS, N, 1, 'read_pah_menu:1' )
+      READ( SUBSTRS(1:N), * ) WSOC_RATIO
+
+      ! Turn off KAHAN et al heterogeneous scheme
+      CALL SPLIT_ONE_LINE( SUBSTRS, N, 1, 'read_pah_menu:2' )
+      READ( SUBSTRS(1:N), * ) KAHAN_HET_OFF
+
+      ! Kmax value to use if not using KAHAN
+      CALL SPLIT_ONE_LINE( SUBSTRS, N, 1, 'read_pah_menu:4' )
+      READ( SUBSTRS(1:N), * ) PAH_KMAX
+
+      ! KO3 value to use if not using KAHAN
+      CALL SPLIT_ONE_LINE( SUBSTRS, N, 1, 'read_pah_menu:5' )
+      READ( SUBSTRS(1:N), * ) PAH_KO3
+
+      ! Separator line
+      CALL SPLIT_ONE_LINE( SUBSTRS, N, 1, 'read_pah_menu:6' )
+
+      !=================================================================
+      ! Print to screen
+      !=================================================================
+      IF( am_I_Root ) THEN
+         WRITE( 6, '(/,a)' ) 'PAH MENU'
+         WRITE( 6, '(  a)' ) '------------'
+         WRITE( 6, 120     ) 'PPFER PARTITIONING    : ', PPFER_ON
+		 WRITE( 6, 120     ) 'Ratio of WSOC         : ', WSOC_RATIO
+         WRITE( 6, 110     ) 'TURN OF KAHAN HET     : ', KAHAN_HET_OFF
+         WRITE( 6, 130     ) 'Kmax                  : ', PAH_KMAX
+         WRITE( 6, 130     ) 'KO3                   : ', PAH_KO3
+      ENDIF
+
+      ! FORMAT statements
+ 110  FORMAT( A, L5  )
+ 120  FORMAT( A, A   )
+ 130  FORMAT( A, ES10.2 )
+
+      !=================================================================
+      ! Copy to Input Options object
+      !=================================================================
+      Input_Opt%PPFER_PARTITIONING = PPFER_ON
+	  Input_Opt%WSOC_RATIO         = WSOC_RATIO
+      Input_Opt%KAHAN_HET_OFF      = KAHAN_HET_OFF
+      Input_Opt%PAH_KMAX           = PAH_KMAX
+      Input_Opt%PAH_KO3            = PAH_KO3
+
+      ! Return success
+      RC = GC_SUCCESS
+
+      END SUBROUTINE READ_PAH_MENU
 !EOC
 !------------------------------------------------------------------------------
 !                  GEOS-Chem Global Chemical Transport Model                  !

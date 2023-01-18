@@ -492,14 +492,14 @@
 
       ! First-time initialization
       IF ( FIRSTCHEM ) THEN
-
+         WRITE(6,*) 'FIRTCHEM = T'
          ! Zero SOG4 and SOA4 (SOA from ISOP in gas & aerosol form)
          ! for offline aerosol simulations.  Eventually we should have
          ! archived isoprene oxidation fields available for offline
          ! simulations but for now we just set them to zero. 
          ! (dkh, bmy, 6/1/06)
          IF ( IT_IS_AN_AEROSOL_SIM ) THEN
-
+            WRITE(6,*) 'IT_IS_AN_AEROSOL_SIM = T'
             ! update for isoprene SOA (hotp 5/20/10)
             IF ( id_ISOA1 > 0 ) Spc(:,:,:,id_ISOA1) = 0.0_fp
             IF ( id_ISOA2 > 0 ) Spc(:,:,:,id_ISOA2) = 0.0_fp
@@ -507,7 +507,7 @@
             IF ( id_ISOG1 > 0 ) Spc(:,:,:,id_ISOG1) = 0.0_fp
             IF ( id_ISOG2 > 0 ) Spc(:,:,:,id_ISOG2) = 0.0_fp
             IF ( id_ISOG3 > 0 ) Spc(:,:,:,id_ISOG3) = 0.0_fp
-
+            WRITE(6,*) 'id for ISOA1, ISOA2... ', id_ISOA1, id_ISOA2
             ! lumped arom/IVOC (hotp 5/17/10)
             ! LUMPAROMIVOC: lump arom/IVOC not supported for offline sims
             IF ( id_ASOAN > 0 ) Spc(:,:,:,id_ASOAN) = 0.0_fp
@@ -517,8 +517,9 @@
             IF ( id_ASOG1 > 0 ) Spc(:,:,:,id_ASOG1) = 0.0_fp
             IF ( id_ASOG2 > 0 ) Spc(:,:,:,id_ASOG2) = 0.0_fp
             IF ( id_ASOG3 > 0 ) Spc(:,:,:,id_ASOG3) = 0.0_fp
-
+            WRITE(6,*) 'id for id_ASOAN, etc... ', id_ASOAN, id_ASOA1
             IF ( LSOA ) THEN
+               WRITE(6,*) 'LSOA = T'
                ! Get offline oxidant fields from HEMCO (mps, 9/23/14)
                CALL HCO_GetPtr( aIR, HcoState, 'GLOBAL_OH',  OH,  RC )
                IF ( RC /= GC_SUCCESS )
@@ -2028,13 +2029,13 @@
       ! semivolpoa2: diagnostic info (hotp 3/11/09) 
       GLOB_AM0_POA   = 0.e+0_fp
       GLOB_AM0_POA_0 = 0.e+0_fp
-
+      ! online-PAH/Nest-NA failing somewhere in SOA_CHEMISTRY (JMK
+      ! 23/07/20) 
       ! added debug (hotp 8/24/09)
       IF ( prtDebug ) THEN
          print*, 'START SOA_CHEMISTRY'
          print*, 'species   ','global sum   ', 
      &              'box 20,33,2   ', 'box 20,33,10    '
-
          IF ( Input_Opt%LSVPOA ) THEN
             print*,'POA1', SUM(Spc(:,:,:,id_POA1))
             print*,'POA2', SUM(Spc(:,:,:,id_POA2))
@@ -2045,7 +2046,6 @@
             print*,'OPOG1',SUM(Spc(:,:,:,id_OPOG1))
             print*,'OPOG2',SUM(Spc(:,:,:,id_OPOG2))
          ENDIF
-
          ! semivolpoa3: debug POAEMISS
          print*, 'POAEMISS,1,POG1',
      &                 SUM(POAEMISS(:,:,:,1)),POAEMISS(20,33,2,1),
@@ -2053,7 +2053,11 @@
          print*, 'POAEMISS,2,POG2',
      &                 SUM(POAEMISS(:,:,:,2)),POAEMISS(20,33,2,2),
      &                     POAEMISS(20,33,10,2)
-
+         WRITE(6,*) (' ...')
+         print*,'POA1 tot', SUM(Spc(:,:,:,id_POA1))
+         print*,'POA2 tot', SUM(Spc(:,:,:,id_POA2))
+         print*,'POG1 tot', SUM(Spc(:,:,:,id_POG1))
+         print*,'POG2 tot', SUM(Spc(:,:,:,id_POG2))
          ! 10/12/09 debug
          IF ( Input_Opt%LSVPOA ) THEN
             print*,'POAG tot', SUM(Spc(:,:,:,id_POA1))+
@@ -2062,7 +2066,6 @@
      &                         SUM(Spc(:,:,:,id_POG2))
          ENDIF
       ENDIF
- 
       ! Locate POA and OPOA in AM0 (hotp 5/17/10)
       JSVPOA  = IDSV(PARENTPOA)
       JSVOPOA = IDSV(PARENTOPOA)
@@ -2081,6 +2084,7 @@
 !$OMP+PRIVATE( MPRODUCT, MSOA_OLD, VALUE, UPPER, LOWER, MNEW, TOL  )
 !$OMP+PRIVATE( ORG_AER,  ORG_GAS,  KOM,   MPOC                     )
 !$OMP+PRIVATE( KRO2NO,   KRO2HO2,  JSV                             )  
+      !WRITE(6,*) ('JMK: about to do...')
       DO L = 1, LLCHEM
       DO J = 1, JJPAR
       DO I = 1, IIPAR
@@ -2105,7 +2109,7 @@
          ! add arguments for RO2+NO, RO2+HO2 rates (hotp 5/7/10)
          CALL SOA_PARA( RTEMP, KO3, KOH, KNO3, KOM,
      &                  I,     J,   L,   KRO2NO, KRO2HO2, State_Met )
-
+         
          ! Partition mass of gas & aerosol species 
          ! according to 5 VOC classes & 3 oxidants
          CALL SOA_PARTITION( I, J, L, GM0, AM0, State_Chm )
@@ -2125,7 +2129,6 @@
          !==============================================================
          ! Equilibrium calculation between GAS (SOG) and Aerosol (SOA)
          !==============================================================
-
          ! Initialize other arrays to be safe  (dkh, 11/10/06)  
          ! update dims (hotp 5/22/10)
          ORG_AER(:,:) = 0e+0_fp
@@ -2162,7 +2165,6 @@
                ORG_AER(IPR,JSV) = ORG_AER(IPR,JSV) * OCFOPOA
             ENDDO  
          ENDIF
-
          !-----------------------------------------------------------
          ! Compute SOG condensation onto OC aerosol
          !
@@ -2330,13 +2332,13 @@
          GLOB_AM0_POA(I,J,L,1,:,:) = AM0(:,JSVPOA:JSVOPOA)
 
          ! Check equilibrium (hotp 5/18/10)
-         IF ( LPRT ) THEN
-            ! IDSV for lumped arom/IVOC is hardwired (=3) (hotp 5/20/10)
-            ! Low NOX (non-volatile) aromatic product is IPR=4
-            CALL CHECK_EQLB( I, J, L, KOM, FAC, MNEW, LOWER, TOL,
-     &                       ORG_GAS(4,3), ORG_AER(4,3), MPOC,
-     &                       State_Chm )
-         ENDIF
+         !IF ( LPRT ) THEN
+         !   ! IDSV for lumped arom/IVOC is hardwired (=3) (hotp 5/20/10)
+         !   ! Low NOX (non-volatile) aromatic product is IPR=4
+         !   CALL CHECK_EQLB( I, J, L, KOM, FAC, MNEW, LOWER, TOL,
+!     &                       ORG_GAS(4,3), ORG_AER(4,3), MPOC,
+!     &                       State_Chm )
+!         ENDIF
 
       ENDDO
       ENDDO
@@ -2401,7 +2403,8 @@
 
          ! semivolpoa2: diagnostic info (hotp 3/11/09)
          ! initial info
-         print*, 'AFTER SOA_CHEMISTRY'
+         !WRITE(6,*) 'redefining id_NAP back to what it should be'
+         !id_NAP = 161
          print*, 'species   ','global sum   ', 
      &           'box 20,33,2   ', 'box 20,33,10    '
 
@@ -3675,7 +3678,6 @@
       !=================================================================
       ! CHEM_NVOC begins here!
       !=================================================================
-
       ! Assume success
       RC      = GC_SUCCESS
 
@@ -3684,11 +3686,11 @@
 
       ! Chemistry timestep [s]
       DTCHEM  = GET_TS_CHEM() * 60e+0_fp 
-
+      !WRITE(6,*) ('JMK:  getting offline oxidant concentrations...')
       ! Get offline OH, NO3, O3 concentrations [molec/cm3]
       OHMC    = GET_OH(  I, J, L, Input_Opt, State_Chm, State_Met ) 
       TTNO3   = GET_NO3( I, J, L, Input_Opt, State_Chm, State_Met )
-      TTO3    = GET_O3(  I, J, L, Input_Opt, State_Chm, State_Met ) 
+      TTO3    = GET_O3(  I, J, L, Input_Opt, State_Chm, State_Met )
 
       ! Get RO2+NO, RO2+HO2 branching ratio (hotp 5/7/10)
       NOTEMP  = GET_NO(  I, J, L, Input_Opt, State_Chm, State_Met )
@@ -3733,7 +3735,6 @@
       ENDIF
 
       DO JHC = 1, MAXLOOP
-
          ! Initialize again for safety (hotp 5/22/10)
          DELHC = 0e+0_fp
 
@@ -3743,22 +3744,24 @@
          ! update for new mtp (hotp 5/22/10)
          IF ( JHC == PARENTMTPA .or. JHC == PARENTLIMO .or.
      &        JHC == PARENTMTPO .or. JHC == PARENTSESQ      ) THEN
-
+            !WRITE(6,*) 'JHC = ', ' therefore entered gate for biogenics'
             !------------------------------------------
             ! Oxidize parent hydrocarbon by OH, O3, NO3
             ! (unmodified from original implemenation)
             !------------------------------------------
+            !WRITE(6,*) 'SHAPE(NMVOC) = ', SHAPE(NMVOC(JHC)) 
             RK          = KO3(JHC)*TTO3 + KOH(JHC)*OHMC
      &                  + KNO3(JHC)*TTNO3
+            !WRITE(6,*) 'JHC', JHC, '; about to calculate change'
             CHANGE(JHC) = NMVOC(JHC) * ( 1.e+0_fp - 
      &                    EXP( -RK * DTCHEM ) ) !changed to EXP (myan, 12/14)
-
+            !WRITE(6,*) 'JHC', JHC, '; calculated change'
             ! In case that the biogenic hydrocarbon is the limiting reactant
             IF ( CHANGE(JHC) >= NMVOC(JHC) ) CHANGE(JHC) = NMVOC(JHC)
-      
+            !WRITE(6,*) 'JHC', JHC, '; conc-change...'
             ! NMVOC concentration after oxidation reactions
             NMVOC(JHC) = NMVOC(JHC) - CHANGE(JHC)
-
+            !WRITE(6,*) 'JHC', JHC, '; conc-change done'
             IF( CHANGE(JHC) > 1.e-16_fp ) THEN
                OVER  = 1.e+0_fp / RK
                DO3   = CHANGE(JHC) * KO3(JHC)  * TTO3  * OVER ![kg]
@@ -3805,16 +3808,15 @@
      &                        + ALPHA(NOX,IPR,JHC) * DELHC(NOX)
             ENDDO
             ENDDO 
-
+            !WRITE(6,*) 'JHC', JHC, '; completed'
          ! remove hardwire (hotp 5/17/10)
          !ELSEIF ( JHC == 6 ) THEN 
          ELSEIF ( JHC == PARENTISOP ) THEN 
-
             !-------------------------------
             ! SOA from ISOPRENE: Parent is oxidized in 
             ! gas-phase chemsitry
             !-------------------------------
-
+            
             ! Get ISOP lost to rxn with OH [kg]
             !DOH = GET_DOH( I, J, L, Input_Opt )
             ! Save as DELHC (hotp 5/22/10)
@@ -3824,11 +3826,9 @@
             ! Get ISOP lost to rxn with NO3 [kgC]
             DELHC(2) = GET_ISOPNO3( I, J, L, Input_Opt, State_Chm,
      &                              State_Met )
-
             ! Save diagnostic info for bug check (hotp 5/22/10)
             ! convert from kgC to kg
             DELTASOGSAVE(I,J,L,:,JHC) = DELHC(:) * 68e+0_fp/60e+0_fp
-
             !------------------------------------------
             ! Compute amount of semivolatile formed 
             ! and add to initial SOG (hotp 7/28/10)
@@ -3841,17 +3841,15 @@
      &                           * 68e+0_fp / 60e+0_fp ! (dkh, 11/04/05)  
             ENDDO
             ENDDO
-
          ! remove hardwire (hotp 5/17/10)
          !ELSEIF ( JHC == 7 .or. JHC == 8 .OR. JHC == 9 ) THEN 
          ! Add NAP/IVOC here (hotp 5/22/10)
          ELSEIF ( JHC == PARENTBENZ .or. JHC == PARENTTOLU
      &       .or. JHC == PARENTXYLE .or. JHC == PARENTNAP  ) THEN 
-
+       
             !-------------------------------
             ! SOA from AROMATICS
             !-------------------------------
-
             ! Locate IDSV (hotp 5/14/10)
             JSV = IDSV(JHC)
 
@@ -3880,7 +3878,6 @@
      &                       + ALPHA(NOX,IPR,JHC) * DELHC(NOX) 
             ENDDO
             ENDDO
-
             ! Diagnostic/debug info (hotp 5/22/10)
             IF ( JHC == PARENTBENZ .or. JHC == PARENTTOLU
      &                             .or. JHC == PARENTXYLE ) THEN 
@@ -4025,7 +4022,6 @@
 
       ! Free pointer
       Spc => NULL()
-
       END SUBROUTINE CHEM_NVOC
 !EOC
 !------------------------------------------------------------------------------
@@ -6613,6 +6609,7 @@ ccc
 
                ! Species index of the parent aromatic
                id_AROM = id_NAP
+               WRITE(6,*) 'JMK; id_AROM = ', id_AROM
 
             ELSE
 
@@ -8848,6 +8845,8 @@ ccc
       id_MTPA     = IND_('MTPA'    )
       id_MTPO     = IND_('MTPO'    )
       id_NAP      = IND_('NAP'     )
+      !id_NAP      = -1
+      WRITE(6,*) 'id_NAP = ', id_NAP
       id_NK1      = IND_('NK1'     )
       id_NH4      = IND_('NH4'     )
       id_NO       = IND_('NO'      )
@@ -8857,8 +8856,10 @@ ccc
       id_O3       = IND_('O3'      )
       id_OH       = IND_('OH'      )
       id_OCPO     = IND_('OCPO'    )
+      WRITE(6,*) 'id_OCPO = ', id_OCPO
       id_OCPI     = IND_('OCPI'    )
       id_OPOA1    = IND_('OPOA1'   )
+      WRITE(6,*) 'id_OPOA1 = ', id_OPOA1
       id_OPOG1    = IND_('OPOG1'   )
       id_OPOA2    = IND_('OPOA2'   )
       id_OPOG2    = IND_('OPOG2'   )

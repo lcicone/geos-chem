@@ -571,7 +571,7 @@
       INTEGER,    PARAMETER :: NNPAR   = 340   ! For TOMAS (win, bmy, sfarina 6/11/13)f
 # endif
 #else
-      INTEGER,    PARAMETER :: NNPAR   = 150   ! For non-TOMAS simulations
+      INTEGER,    PARAMETER :: NNPAR   = 250   ! For non-TOMAS simulations
 #endif
 
       !=================================================================

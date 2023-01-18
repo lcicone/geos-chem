@@ -102,6 +102,7 @@
       USE ISOROPIAII_MOD,     ONLY : DO_ISOROPIAII
       USE MERCURY_MOD,        ONLY : CHEMMERCURY
       USE POPS_MOD,           ONLY : CHEMPOPS
+	  USE PAH_MOD,            ONLY : PAHCHEM
       USE RnPbBe_MOD,         ONLY : CHEMRnPbBe
       USE RPMARES_MOD,        ONLY : DO_RPMARES
       USE SEASALT_MOD,        ONLY : CHEMSEASALT
@@ -466,6 +467,9 @@
                CALL CHEMCARBON
      &            ( am_I_Root, Input_Opt, State_Met, State_Chm, RC )
             ENDIF
+			
+            CALL PAHCHEM
+     &         ( am_I_Root, Input_Opt, State_Met, State_Chm, RC )
 
             ! Do dust aerosol chemistry
             IF ( LDUST .AND. id_DST1 > 0 ) THEN

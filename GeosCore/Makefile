@@ -441,15 +441,6 @@ carbon_mod.o                : carbon_mod.F                                   \
                               tomas_mod.o             vdiff_pre_mod.o        \
                               hco_interface_mod.o     aerosol_mod.o
 
-chemdr.o                    : chemdr.F                                       \
-                              aerosol_mod.o           chemgrid_mod.o         \
-                              comode_mod.o            dao_mod.o              \
-                              diag_oh_mod.o           diag_pl_mod.o          \
-                              dust_mod.o              future_emissions_mod.o \
-                              planeflight_mod.o       restart_mod.o          \
-                              tracerid_mod.o          hco_interface_mod.o    \
-                              diagnostics_mod.o
-
 chemgrid_mod.o              : chemgrid_mod.F                                 \
                               dao_mod.o               diag_mod.o
 
@@ -457,7 +448,8 @@ chemistry_mod.o             : chemistry_mod.F                                \
                               aerosol_mod.o           isoropiaII_mod.o       \
                               c2h6_mod.o              carbon_mod.o           \
                               dust_mod.o              drydep_mod.o           \
-                              global_ch4_mod.o        mercury_mod.o          \
+                              global_ch4_mod.o        mercury_mod.o			 \
+							  pah_mod.o										 \
                               pops_mod.o              rpmares_mod.o          \
                               RnPbBe_mod.o            seasalt_mod.o          \
                               strat_chem_mod.o        sulfate_mod.o          \
@@ -771,11 +763,9 @@ mixing_mod.o                : mixing_mod.F90                                 \
                               diag_mod.o              drydep_mod.o           \
                               hcoi_gc_main_mod.o      get_ndep_mod.o         \
                               pbl_mix_mod.o           tendencies_mod.o       \
-                              hco_interface_mod.o     vdiff_mod.o                                    
+                              hco_interface_mod.o     vdiff_mod.o
 
 modis_lai_mod.o             : modis_lai_mod.F90       mapping_mod.o
-
-nc_soilnox_read.o           : nc_soilnox_read.F90
 
 ndxx_setup.o                : ndxx_setup.F                                   \
                               diag_mod.o                                     \
@@ -794,6 +784,8 @@ ohsave.o                    : ohsave.F                                       \
 olson_landmap_mod.o         : olson_landmap_mod.F90                          \
                               mapping_mod.o
 
+pah_mod.o                   : pah_mod.F90
+
 pbl_mix_mod.o               : pbl_mix_mod.F                                  \
                               tendencies_mod.o                               \
                               diag_mod.o              
@@ -810,8 +802,6 @@ pops_mod.o           	    : pops_mod.F    	                             \
 			      diag_mod.o	      diag53_mod.o           \
                               drydep_mod.o            pbl_mix_mod.o	     \
                               vdiff_pre_mod.o         hco_interface_mod.o
-
-read_jv_atms_dat.o          : read_jv_atms_dat.F90
 
 restart_mod.o               : restart_mod.F                                  \
                               depo_mercury_mod.o      hco_interface_mod.o    \
@@ -835,15 +825,6 @@ seasalt_mod.o               : seasalt_mod.F           dao_mod.o              \
                               hco_interface_mod.o     vdiff_pre_mod.o
 
 set_prof_o3.o               : set_prof_o3.F                                   
-
-species_database_mod.o      : species_database_mod.F90
-
-ucx_mod.o                   : ucx_mod.F                                      \
-                              chemgrid_mod.o          global_ch4_mod.o       \
-                              fast_jx_mod.o           hco_interface_mod.o    \
-                              future_emissions_mod.o  
-
-soil_nox_mod.o              : soil_nox_mod.F
 
 strat_chem_mod.o            : strat_chem_mod.F90                             \
                               chemgrid_mod.o          dao_mod.o              \
@@ -869,8 +850,6 @@ tagged_o3_mod.o             : tagged_o3_mod.F                                \
                               drydep_mod.o            hco_interface_mod.o    \
                               pbl_mix_mod.o
 
-tcorr.o                     : tcorr.F
-
 tendencies_mod.o            : tendencies_mod.F90                             \
                               hco_interface_mod.o
 
@@ -878,6 +857,8 @@ toms_mod.o                  : toms_mod.F                                     \
                               hco_interface_mod.o
 
 tpcore_bc_mod.o             : tpcore_bc_mod.F                              
+
+tpcore_fvdas_mod.o          : tpcore_fvdas_mod.F90
 
 tpcore_window_mod.o         : tpcore_window_mod.F90
 ifeq ($(PRECISION),8)
@@ -891,7 +872,10 @@ transport_mod.o             : transport_mod.F                                \
                               tendencies_mod.o        pjc_pfix_window_mod.o  \
                               dao_mod.o
 
-update.o                    : update.F
+ucx_mod.o                   : ucx_mod.F                                      \
+                              chemgrid_mod.o          global_ch4_mod.o       \
+                              fast_jx_mod.o           hco_interface_mod.o    \
+                              future_emissions_mod.o  
 
 uvalbedo_mod.o              : uvalbedo_mod.F90                               \
                               hco_interface_mod.o

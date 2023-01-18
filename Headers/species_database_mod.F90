@@ -237,6 +237,1312 @@ CONTAINS
           ! CH4 is also contained here, as it is part of the benchmark
           ! and UCX mechanisms.
           !==================================================================
+		  
+!============================================================================
+!Species added for online simulation(PDI)
+!Temporartly loacated at start of full-chemistry
+!============================================================================			  
+		  
+		  CASE( 'ACE' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Acenaphthene',               &
+                              MW_g          = 154.2_fp,                     &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'ACY' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Acenaphylene',               &
+                              MW_g          = 152.2_fp,                     &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		   CASE( 'ANT' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Anthracene',                 &
+                              MW_g          = 178.23_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'BAA' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Benzo(a)anthracene',         &
+                              MW_g          = 228.29_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+		  
+		  CASE( 'BAP' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Benzo(a)pyrene',             &
+                              MW_g          = 252.32_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+
+                  CASE( 'BAPB' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'BAPg+OH prod in g-phase',    &
+                              MW_g          = 247.25_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = T,                            &
+                              Is_Wetdep     = T,                            &
+                              Is_Photolysis = F,                            &
+                                                          DD_F0         = 1.0_fp,                       &                      
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+                                                          WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+
+                  CASE( 'BAPC' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'BAPp+O3 prod in g-phase',    &
+                              MW_g          = 292.24_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = T,                            &
+                              Is_Wetdep     = T,                            &
+                              Is_Photolysis = F,                            &
+                                                          DD_F0         = 1.0_fp,                       &                      
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900._f8,                    &
+                                                          WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'BBF' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Benzo(f)fluoranthene',       &
+                              MW_g          = 252.32_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		   CASE( 'BHP' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Benzo(ghi)perylene',         &
+                              MW_g          = 276.33_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'BKF' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Benzo(k)fluoranthene',       &
+                              MW_g          = 252.32_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+		  
+		  CASE( 'CHR' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Chrysene',                   &
+                              MW_g          = 228.29_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'DAHA' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Dibenz(a,h)anthracene',      &
+                              MW_g          = 278.35_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		   CASE( 'FLA' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Fluoranthene',               &
+                              MW_g          = 202.26_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'FLO' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Fluorene',                   &
+                              MW_g          = 166.22_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+		  
+		  CASE( 'ICDP' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Indeno(1,2,3-cd)pyrene',     &
+                              MW_g          = 276.33_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'NAP' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Naphthalene',                &
+                              MW_g          = 128.17_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+
+		  CASE( 'NNAP' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Nitro Naphthalenes',         &
+                              MW_g          = 173.17_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+
+		   CASE( 'PHE' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Phenanthrene',               &
+                              MW_g          = 178.23_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )
+							  
+		  CASE( 'PYR' )
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = 'Pyrene',                     &
+                              MW_g          = 202.25_fp,                    &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = T,                            &
+                              Is_Drydep     = F,                            &
+                              Is_Wetdep     = F,                            &
+                              Is_Photolysis = F,                            &
+							  DD_F0         = 1.0_fp,                       &                               
+                              DD_Hstar_old  = 1e+5_fp,                      &
+                              Henry_K0      = 3.1e-5_f8,                    &
+                              Henry_CR      = 4900.0_f8,                    &
+							  WD_RetFactor  = 5e-2_fp,                      &
+                              WD_LiqAndGas  = F,                            &
+                              RC            = RC )	
+			
+          CASE( 'ACEBCPI',  'ACEBCPO',  'ACYBCPI',   'ACYBCPO',             &
+			    'BAABCPI',  'BAABCPO',  'BAPBCPI',   'BAPBCPO',             &
+                            'BAPBBCPI', 'BAPBBCPO', 'BAPCBCPI',  'BAPCBCPO',            &
+			    'BBFBCPI',  'BBFBCPO',  'BHPBCPI',   'BHPBCPO',             &
+			    'BKFBCPI',  'BKFBCPO',  'CHRBCPI',   'CHRBCPO',             &
+			    'DAHABCPI', 'DAHABCPO', 'FLABCPI',   'FLABCPO',             &
+			    'FLOBCPI',  'FLOBCPO',  'ICDPBCPI',  'ICDPBCPO',            &
+			    'NAPBCPI',  'NAPBCPO',  'ANTBCPI',   'ANTBCPO',             &
+                            'PHEBCPI',  'PHEBCPO',  'PYRBCPI',   'PYRBCPO' )            
+             
+             ! These have mostly identical properties
+             SELECT CASE( NameAllCaps )
+
+                CASE( 'ACEBCPI' )
+                   FullName = 'Acenaphthene on Hydrophilic black carbon aerosol'
+				   MW_g     = 154.2_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ACEBCPO' )
+                   Fullname = 'Acenaphthene on Hydrophobic black carbon aerosol'
+				   MW_g     =  154.2_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'ACYBCPI' )
+                   FullName = 'Acenaphylene on Hydrophilic black carbon aerosol'
+				   MW_g     = 152.2_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ACYBCPO' )
+                   Fullname = 'Acenaphylene on Hydrophobic black carbon aerosol'
+				   MW_g     =  152.2_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'ANTBCPI' )
+                   FullName = 'Anthracene on Hydrophilic black carbon aerosol'
+				   MW_g     = 178.23_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ANTBCPO' )
+                   Fullname = 'Anthracene on Hydrophobic black carbon aerosol'
+				   MW_g     =  178.23_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BAABCPI' )
+                   FullName = 'Benzo(a)anthracene on Hydrophilic black carbon aerosol'
+				   MW_g     = 228.29_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAABCPO' )
+                   Fullname = 'Benzo(a)anthracene on Hydrophobic black carbon aerosol'
+				   MW_g     =  228.29_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BAPBCPI' )
+                   FullName = 'Benzo(a)pyrene on Hydrophilic black carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAPBCPO' )
+                   Fullname = 'Benzo(a)pyrene on Hydrophobic black carbon aerosol'
+				   MW_g     =  252.32_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BAPBBCPI' )
+                   FullName = 'BAPg+OH on Hydrophilic black carbon aerosol'
+                                   MW_g     = 247.25_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAPBBCPO' )
+                   Fullname = 'BAPg+OH on Hydrophobic black carbon aerosol'
+                                   MW_g     =  247.25_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BAPCBCPI' )
+                   FullName = 'BAPp+O3 on Hydrophilic black carbon aerosol'
+                                   MW_g     = 292.24_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAPCBCPO' )
+                   Fullname = 'BAPp+O3 on Hydrophobic black carbon aerosol'
+                                   MW_g     =  292.24_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BBFBCPI' )
+                   FullName = 'Benzo(f)fluoranthene on Hydrophilic black carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BBFBCPO' )
+                   Fullname = 'Benzo(f)fluoranthene on Hydrophobic black carbon aerosol'
+				   MW_g     =  252.32_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BHPBCPI' )
+                   FullName = 'Benzo(ghi)perylene on Hydrophilic black carbon aerosol'
+				   MW_g     = 276.33_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BHPBCPO' )
+                   Fullname = 'Benzo(ghi)perylene on Hydrophobic black carbon aerosol'
+				   MW_g     =  276.33_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'BKFBCPI' )
+                   FullName = 'Benzo(k)fluoranthene on Hydrophilic black carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BKFBCPO' )
+                   Fullname = 'Benzo(k)fluoranthene on Hydrophobic black carbon aerosol'
+				   MW_g     = 252.32_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'CHRBCPI' )
+                   FullName = 'Chrysene on Hydrophilic black carbon aerosol'
+				   MW_g     = 228.29_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'CHRBCPO' )
+                   Fullname = 'Chrysene on Hydrophobic black carbon aerosol'
+				   MW_g     =  228.29_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'DAHABCPI' )
+                   FullName = 'Dibenz(a,h)anthracene on Hydrophilic black carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'DAHABCPO' )
+                   Fullname = 'Dibenz(a,h)anthracene on Hydrophobic black carbon aerosol'
+				   MW_g     =  278.35_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'FLABCPI' )
+                   FullName = 'Fluoranthene on Hydrophilic black carbon aerosol'
+				   MW_g     = 202.26_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'FLABCPO' )
+                   Fullname = 'Fluoranthene on Hydrophobic black carbon aerosol'
+				   MW_g     =  202.26_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'FLOBCPI' )
+                   FullName = 'Fluorene on Hydrophilic black carbon aerosol'
+				   MW_g     = 166.22_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'FLOBCPO' )
+                   Fullname = 'Fluorene on Hydrophobic black carbon aerosol'
+				   MW_g     =  166.22_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'ICDPBCPI' )
+                   FullName = 'Indeno(1,2,3-cd)pyrene on Hydrophilic black carbon aerosol'
+				   MW_g     = 276.33_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ICDPBCPO' )
+                   Fullname = 'Indeno(1,2,3-cd)pyrene on Hydrophobic black carbon aerosol'
+				   MW_g     =  276.33_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'NAPBCPI' )
+                   FullName = 'Naphthalene on Hydrophilic black carbon aerosol'
+				   MW_g     = 128.17_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'NAPBCPO' )
+                   Fullname = 'Naphthalene on Hydrophobic black carbon aerosol'
+				   MW_g     =  128.17_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'PHEBCPI' )
+                   FullName = 'Phenanthrene on Hydrophilic black carbon aerosol'
+				   MW_g     = 178.23_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'PHEBCPO' )
+                   Fullname = 'Phenanthrene on Hydrophobic black carbon aerosol'
+				   MW_g     =  178.23_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'PYRBCPI' )
+                   FullName = 'Pyrene on Hydrophilic black carbon aerosol'
+				   MW_g     = 202.25_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'PYRBCPO' )
+                   Fullname = 'Pyrene on Hydrophobic black carbon aerosol'
+				   MW_g     =  202.25_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+		   
+             END SELECT
+
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = FullName,                     &
+							  MW_g          = MW_g,                         &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = F,                            &
+                              Is_Drydep     = T,                            &
+                              Is_Wetdep     = T,                            &
+                              Density       = 1800.0_fp,                    &
+                              DD_DvzAerSnow = 0.03_fp,                      &
+                              DD_F0         = 0.0_fp,                       &
+                              DD_Hstar_Old  = 0.0_fp,                       &
+                              WD_AerScavEff = 1.0_fp,                       &
+                              WD_KcScaleFac = KcScale,                      &
+                              WD_RainoutEff = RainEff,                      &
+                              RC            = RC )
+          
+		  CASE( 'ACEOCPI',  'ACEOCPO',  'ACYOCPI',   'ACYOCPO',             &
+			    'BAAOCPI',  'BAAOCPO',  'BAPOCPI',   'BAPOCPO',             &
+			    'BAPBOCPI', 'BAPBOCPO', 'BAPCOCPI',  'BAPCOCPO',            &
+                            'BBFOCPI',  'BBFOCPO',  'BHPOCPI',   'BHPOCPO',             &
+			    'BKFOCPI',  'BKFOCPO',  'CHROCPI',   'CHROCPO',             &
+			    'DAHAOCPI', 'DAHAOCPO', 'FLAOCPI',   'FLAOCPO',             &
+			    'FLOOCPI',  'FLOOCPO',  'ICDPOCPI',  'ICDPOCPO',            &
+			    'NAPOCPI',  'NAPOCPO',  'ANTOCPI',   'ANTOCPO',             &
+                            'PHEOCPI',  'PHEOCPO',  'PYROCPI',   'PYROCPO' )     
+
+             ! These have mostly identical properties
+             SELECT CASE( NameAllCaps )							  
+
+                CASE( 'ACEOCPI' )
+                   FullName = 'Acenaphthene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 154.2_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ACEOCPO' )
+                   Fullname = 'Acenaphthene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  154.2_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'ACYOCPI' )
+                   FullName = 'Acenaphylene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 152.2_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ACYOCPO' )
+                   Fullname = 'Acenaphylene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  152.2_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'ANTOCPI' )
+                   FullName = 'Anthracene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 178.23_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'ANTOCPO' )
+                   Fullname = 'Anthracene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  178.23_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BAAOCPI' )
+                   FullName = 'Benzo(a)anthracene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 228.29_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAAOCPO' )
+                   Fullname = 'Benzo(a)anthracene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  228.29_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BAPOCPI' )
+                   FullName = 'Benzo(a)pyrene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAPOCPO' )
+                   Fullname = 'Benzo(a)pyrene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  252.32_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BAPBOCPI' )
+                   FullName = 'BAPg+OH on Hydrophilic organic carbon aerosol'
+                                   MW_g     = 247.25_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAPBOCPO' )
+                   Fullname = 'BAPg+OH on Hydrophobic organic carbon aerosol'
+                                   MW_g     =  247.25_fp
+                                
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BAPCOCPI' )
+                   FullName = 'BAPp+O3 on Hydrophilic organic carbon aerosol'
+                                   MW_g     = 292.24_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BAPCOCPO' )
+                   Fullname = 'BAPp+O3 on Hydrophobic organic carbon aerosol'
+                                   MW_g     =  292.24_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BBFOCPI' )
+                   FullName = 'Benzo(f)fluoranthene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BBFOCPO' )
+                   Fullname = 'Benzo(f)fluoranthene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  252.32_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BHPOCPI' )
+                   FullName = 'Benzo(ghi)perylene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 276.33_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BHPOCPO' )
+                   Fullname = 'Benzo(ghi)perylene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  276.33_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'BKFOCPI' )
+                   FullName = 'Benzo(k)fluoranthene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'BKFOCPO' )
+                   Fullname = 'Benzo(k)fluoranthene on Hydrophobic organic carbon aerosol'
+				   MW_g     = 252.32_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'CHROCPI' )
+                   FullName = 'Chrysene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 228.29_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'CHROCPO' )
+                   Fullname = 'Chrysene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  228.29_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'DAHAOCPI' )
+                   FullName = 'Dibenz(a,h)anthracene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 252.32_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'DAHAOCPO' )
+                   Fullname = 'Dibenz(a,h)anthracene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  278.35_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'FLAOCPI' )
+                   FullName = 'Fluoranthene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 202.26_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'FLAOCPO' )
+                   Fullname = 'Fluoranthene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  202.26_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'FLOOCPI' )
+                   FullName = 'Fluorene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 166.22_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'FLOOCPO' )
+                   Fullname = 'Fluorene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  166.22_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'ICDPOCPI' )
+                   FullName = 'Indeno(1,2,3-cd)pyrene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 276.33_fp
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+				   
+                CASE( 'ICDPOCPO' )
+                   Fullname = 'Indeno(1,2,3-cd)pyrene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  276.33_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'NAPOCPI' )
+                   FullName = 'Naphthalene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 128.17_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+
+                CASE( 'NAPOCPO' )
+                   Fullname = 'Naphthalene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  128.17_fp
+				   
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range T > 258 K
+                   KcScale  = (/ 1.0_fp, 1.0_fp, 0.5_fp /)
+
+                   ! Allow rainout of OCPO when T < 258 K, because
+                   ! OCPO is considered to be IN.
+                   RainEff  = (/ 1.0_fp, 1.0_fp, 0.0_fp /)
+
+                CASE( 'PHEOCPI' )
+                   FullName = 'Phenanthrene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 178.23_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+				   
+                CASE( 'PHEOCPO' )
+                   Fullname = 'Phenanthrene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  178.23_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+
+                CASE( 'PYROCPI' )
+                   FullName = 'Pyrene on Hydrophilic organic carbon aerosol'
+				   MW_g     = 202.25_fp 
+
+                   ! Halve the Kc (cloud condensate -> precip) rate
+                   ! for the temperature range 237 K <= T < 258 K.
+                   KcScale  = (/ 1.0_fp, 0.5_fp, 1.0_fp /)
+
+                   ! Turn off rainout only when 237 K <= T < 258K.
+                   RainEff  = (/ 1.0_fp, 0.0_fp, 1.0_fp /)
+				   
+                CASE( 'PYROCPO' )
+                   Fullname = 'Pyrene on Hydrophobic organic carbon aerosol'
+				   MW_g     =  202.25_fp
+
+                   ! For all temperatures:
+                   ! (1) Halve the Kc (cloud condensate -> precip) rate
+                   ! (2) Turn off rainout (OCPO is hydrophobic)
+                   KcScale  = (/ 0.5_fp, 0.5_fp, 0.5_fp /)
+                   RainEff  = (/ 0.0_fp, 0.0_fp, 0.0_fp /)
+ 
+             END SELECT
+
+             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ThisSpc       = SpcData(N)%Info,              &
+                              ModelID       = N,                            &
+                              KppSpcId      = KppSpcId(N),                  &
+                              KppVarId      = KppVarId(N),                  &
+                              KppFixId      = KppFixId(N),                  &
+                              Name          = NameAllCaps,                  &
+                              FullName      = FullName,                     &
+							  MW_g          = MW_g,                         &
+                              Is_Advected   = Is_Advected,                  &
+                              Is_Gas        = F,                            &
+                              Is_Drydep     = T,                            &
+                              Is_Wetdep     = T,                            &
+                              Density       = 1300.0_fp,                    &
+                              DD_DvzAerSnow = 0.03_fp,                      &
+                              DD_F0         = 0.0_fp,                       &
+                              DD_Hstar_Old  = 0.0_fp,                       &
+                              WD_AerScavEff = 1.0_fp,                       &
+                              WD_KcScaleFac = KcScale,                      &
+                              WD_RainoutEff = RainEff,                      &
+                              RC            = RC )
+
+!============================================================================					   
 
           CASE( 'ACET' )
              CALL Spc_Create( am_I_Root     = am_I_Root,                    &
@@ -2207,23 +3513,24 @@ CONTAINS
                               WD_RetFactor  = 2.0e-2_fp,                    &
                               RC            = RC )
 
-          CASE( 'NAP' )
-             CALL Spc_Create( am_I_Root     = am_I_Root,                    &
-                              ThisSpc       = SpcData(N)%Info,              &
-                              ModelID       = N,                            &
-                              KppSpcId      = KppSpcId(N),                  &
-                              KppVarId      = KppVarId(N),                  &
-                              KppFixId      = KppFixId(N),                  &
-                              Name          = NameAllCaps,                  &
-                              FullName      = 'Naphtalene/IVOC surrogate',  &
-                              MW_g          = 128.27_fp,                    &
-                              EmMw_g        = 12.0_fp,                      &
-                              MolecRatio    = 10.0_fp,                      &
-                              Is_Advected   = Is_Advected,                  &
-                              Is_Gas        = T,                            &
-                              Is_Drydep     = F,                            &
-                              Is_Wetdep     = F,                            &
-                              RC            = RC )
+!PAH scheme replaces this version of hte NAP tracer
+          ! CASE( 'NAP' )
+             ! CALL Spc_Create( am_I_Root     = am_I_Root,                    &
+                              ! ThisSpc       = SpcData(N)%Info,              &
+                              ! ModelID       = N,                            &
+                              ! KppSpcId      = KppSpcId(N),                  &
+                              ! KppVarId      = KppVarId(N),                  &
+                              ! KppFixId      = KppFixId(N),                  &
+                              ! Name          = NameAllCaps,                  &
+                              ! FullName      = 'Naphtalene/IVOC surrogate',  &
+                              ! MW_g          = 128.27_fp,                    &
+                              ! EmMw_g        = 12.0_fp,                      &
+                              ! MolecRatio    = 10.0_fp,                      &
+                              ! Is_Advected   = Is_Advected,                  &
+                              ! Is_Gas        = T,                            &
+                              ! Is_Drydep     = F,                            &
+                              ! Is_Wetdep     = F,                            &
+                              ! RC            = RC )
 
           CASE( 'N2O' )
              CALL Spc_Create( am_I_Root     = am_I_Root,                    &

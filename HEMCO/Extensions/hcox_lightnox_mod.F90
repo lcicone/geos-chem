@@ -1706,7 +1706,10 @@ CONTAINS
     ! met fields become available (ltm, 2014-12-10).
     IF ( ( cYr .eq. 2012 .and. cMt .ge. 4  ) .or. &
          ( cYr .eq. 2013                   ) .or. &
-         ( cYr .eq. 2014 .and. cMt .le. 10 ) ) THEN
+		 ( cYr .eq. 2014                   ) .or. &
+		 ( cYr .eq. 2015                   ) .or. &
+		 ( cYr .eq. 2016                   ) .or. &
+         ( cYr .eq. 2017 .and. cMt .le. 9 ) ) THEN
        BETA = ANN_AVG_FLASHRATE / 82.373293d0
     ENDIF
 
@@ -1721,7 +1724,7 @@ CONTAINS
     ! met fields become available (ltm, 2014-12-10).
     IF ( ( cYr .eq. 2012 .and. cMt .ge. 4  ) .or. &
          ( cYr .eq. 2013                   ) .or. &
-         ( cYr .eq. 2014 .and. cMt .le. 10 ) ) THEN
+         ( cYr .eq. 2017 .and. cMt .le. 10 ) ) THEN
        BETA = ANN_AVG_FLASHRATE / 260.40253d0
     ENDIF
 
@@ -1734,8 +1737,12 @@ CONTAINS
     ! Constrained with simulated "climatology" for
     ! Jan 2013 - Dec 2013. Will need to be updated as more
     ! met fields become available (ltm, 2014-10-22).
-    IF ( ( cYr .eq. 2013 .and. cMt .ge. 1  )   .or. &
-         ( cYr .eq. 2013 .and. cMt .le. 12 ) ) THEN
+    IF ( ( cYr .eq. 2012 .and. cMt .ge. 4  ) .or. &
+         ( cYr .eq. 2013                   ) .or. &
+		 ( cYr .eq. 2014                   ) .or. &
+		 ( cYr .eq. 2015                   ) .or. &
+		 ( cYr .eq. 2016                   ) .or. &
+         ( cYr .eq. 2017 .and. cMt .le. 9  ) ) THEN
        BETA = ANN_AVG_FLASHRATE / 1052.6366d0
     ENDIF
 
